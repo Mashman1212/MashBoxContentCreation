@@ -14,17 +14,8 @@ namespace ContentTools
         [Header("Content")]
         [Tooltip("Drop prefabs here to include them in this pack.")]
         public List<GameObject> _items = new List<GameObject>();
+        
 
-        [Header("Labels (optional)")]
-        [Tooltip("Labels applied to every asset in this pack (in addition to name-derived labels).")]
-        public string[] labels;
-
-        [Header("Addressables Group")]
-        [Tooltip("Group to create/use. If empty, uses this asset's name.")]
-        public string addressablesGroupName;
-
-        [Tooltip("Auto-sync this asset to Addressables when it changes.")]
-        [SerializeField] private bool autoSyncOnValidate = true;
 
 #if UNITY_EDITOR
         // ---------------- Editor-only sync logic ----------------
@@ -54,8 +45,7 @@ namespace ContentTools
         private void OnValidate()
         {
             _packName = name;
-
-            if (!autoSyncOnValidate) return;
+            
             if (Application.isPlaying) return;         // don't mutate Addressables in play mode
             if (_syncInProgress) return;               // currently syncing from a previous call
 
@@ -92,7 +82,7 @@ namespace ContentTools
                 }
 
                 // Decide which group name to use
-                string groupName = string.IsNullOrWhiteSpace(addressablesGroupName) ? PackName : addressablesGroupName.Trim();
+                string groupName = PackName;
 
                 // Ensure group exists with a BundledAssetGroupSchema
                 var group = settings.FindGroup(groupName);
@@ -178,14 +168,7 @@ namespace ContentTools
                     foreach (var lab in LabelsFromAssetName(baseName))
                         entry.SetLabel(lab, true, true);
 
-                    if (labels != null)
-                    {
-                        foreach (var lab in labels)
-                        {
-                            if (!string.IsNullOrWhiteSpace(lab))
-                                entry.SetLabel(lab.Trim(), true, true);
-                        }
-                    }
+ 
                 }
 
                 UnityEditor.AssetDatabase.SaveAssets();

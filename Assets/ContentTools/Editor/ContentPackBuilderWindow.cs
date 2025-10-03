@@ -147,8 +147,8 @@ namespace ContentTools.Editor
                     EditorGUI.indentLevel++;
                     //EditorGUILayout.LabelField("Groups:", string.Join(", ", p.groupNames ?? new string[0]));
                     //EditorGUILayout.LabelField("Subfolder:", string.IsNullOrEmpty(p.remoteSubfolderOverride) ? p.packName : p.remoteSubfolderOverride);
-                    if (p.labels != null && p.labels.Length > 0)
-                        EditorGUILayout.LabelField("Labels:", string.Join(", ", p.labels));
+                    //if (p.labels != null && p.labels.Length > 0)
+                    //    EditorGUILayout.LabelField("Labels:", string.Join(", ", p.labels));
                     EditorGUI.indentLevel--;
                     EditorGUILayout.EndVertical();
                 }

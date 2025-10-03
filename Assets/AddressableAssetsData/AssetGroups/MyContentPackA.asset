@@ -18,7 +18,7 @@ MonoBehaviour:
   m_GUID: 9941baf5aac9834428245d9b6a3c7f56
   m_SerializeEntries:
   - m_GUID: 9842689d281eed346aa508a5c1026051
-    m_Address: BMX_Frame_Vanilla_Bean_Purple_2
+    m_Address: BMX_Frame_Vanilla_Bean_Purple
     m_ReadOnly: 0
     m_SerializedLabels:
     - BMX
@@ -27,7 +27,7 @@ MonoBehaviour:
     - Purple
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 31c25bbba99109b4bb04837cf403826a
-    m_Address: BMX_Frame_Vanilla_Bean_Yellow_2
+    m_Address: BMX_Frame_Vanilla_Bean_Yellow
     m_ReadOnly: 0
     m_SerializedLabels:
     - BMX
@@ -36,7 +36,7 @@ MonoBehaviour:
     - Yellow
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 098ed74fe8b1e49459be3d9ea71f23a2
-    m_Address: BMX_Frame_Vanilla_Bean_Orange_2
+    m_Address: BMX_Frame_Vanilla_Bean_Orange
     m_ReadOnly: 0
     m_SerializedLabels:
     - BMX
