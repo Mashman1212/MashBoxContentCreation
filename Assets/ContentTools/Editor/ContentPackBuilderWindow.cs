@@ -15,6 +15,7 @@ namespace ContentTools.Editor
 
         private ContentPackDefinition[] _packs;
         private bool[] _selected;
+        private bool[] _foldouts; // new: show pack contents
 
         private AddressableAssetSettings _settings;
         private int _profileIndex;
@@ -22,7 +23,7 @@ namespace ContentTools.Editor
         private string[] _profileIds;
 
         // Single, simple destination for bundles/manifests
-        private string _buildLocation = string.Empty; // filesystem folder; tokens: [BuildTarget], {pack} supported by AddressablesPackBuilder
+        private string _buildLocation = string.Empty; // filesystem folder
 
         [MenuItem("Window/Addressables/Content Pack Builder")]
         public static void Open()
@@ -33,7 +34,6 @@ namespace ContentTools.Editor
         private void OnEnable()
         {
             _settings = AddressableAssetSettingsDefaultObject.Settings;
-            // Load persisted build location
             _buildLocation = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
             RefreshProfiles();
             RefreshPacks();
@@ -41,7 +41,6 @@ namespace ContentTools.Editor
 
         private void OnDisable()
         {
-            // Persist current value when window closes / domain reloads
             if (!string.IsNullOrEmpty(_buildLocation))
                 EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
             else
@@ -53,11 +52,9 @@ namespace ContentTools.Editor
             if (_settings == null) return;
             var ps = _settings.profileSettings;
 
-            // Minimal & robust: use active profile as fallback
             var ids = new List<string>();
             var names = new List<string>();
 
-            // Try active + its name
             var activeId = _settings.activeProfileId;
             var activeName = ps.GetProfileName(activeId);
             if (string.IsNullOrEmpty(activeName)) activeName = "Default";
@@ -75,9 +72,19 @@ namespace ContentTools.Editor
         private void RefreshPacks()
         {
             var guids = AssetDatabase.FindAssets("t:ContentPackDefinition");
-            _packs = guids.Select(g => AssetDatabase.LoadAssetAtPath<ContentPackDefinition>(AssetDatabase.GUIDToAssetPath(g))).ToArray();
+            _packs = guids
+                .Select(g => AssetDatabase.LoadAssetAtPath<ContentPackDefinition>(AssetDatabase.GUIDToAssetPath(g)))
+                .Where(p => p != null)
+                .ToArray();
+
             _selected = new bool[_packs.Length];
-            for (int i = 0; i < _selected.Length; i++) _selected[i] = true;
+            _foldouts = new bool[_packs.Length];
+
+            for (int i = 0; i < _selected.Length; i++)
+            {
+                _selected[i] = true;
+                _foldouts[i] = false;
+            }
         }
 
         private Vector2 _scroll;
@@ -103,13 +110,11 @@ namespace ContentTools.Editor
 
             EditorGUI.BeginChangeCheck();
             var newBuildLocation = EditorGUILayout.TextField(
-                new GUIContent("Build Location", "Filesystem folder where this tool will emit bundles for the selected packs.\n" +
-                                                  "You can use tokens like [BuildTarget] and {pack}."),
+                new GUIContent("Build Location", "Filesystem folder where this tool will emit bundles for the selected packs."),
                 _buildLocation);
             if (EditorGUI.EndChangeCheck())
             {
                 _buildLocation = (newBuildLocation ?? string.Empty).Replace("\\", "/");
-                // Save on change
                 if (!string.IsNullOrEmpty(_buildLocation))
                     EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
                 else
@@ -118,12 +123,14 @@ namespace ContentTools.Editor
 
             if (GUILayout.Button("Browse", GUILayout.MaxWidth(70)))
             {
-                string picked = EditorUtility.OpenFolderPanel("Select Build Location", 
-                    string.IsNullOrEmpty(_buildLocation) ? Application.dataPath : _buildLocation, "");
+                string picked = EditorUtility.OpenFolderPanel(
+                    "Select Build Location",
+                    string.IsNullOrEmpty(_buildLocation) ? Application.dataPath : _buildLocation,
+                    "");
                 if (!string.IsNullOrEmpty(picked))
                 {
                     _buildLocation = picked.Replace("\\", "/");
-                    EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation); // Save immediately after browse
+                    EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
                 }
             }
             EditorGUILayout.EndHorizontal();
@@ -138,18 +145,65 @@ namespace ContentTools.Editor
             }
             else
             {
-                _scroll = EditorGUILayout.BeginScrollView(_scroll, GUILayout.MinHeight(180));
+                _scroll = EditorGUILayout.BeginScrollView(_scroll, GUILayout.MinHeight(240));
                 for (int i = 0; i < _packs.Length; i++)
                 {
-                    EditorGUILayout.BeginVertical("box");
                     var p = _packs[i];
-                    _selected[i] = EditorGUILayout.ToggleLeft($"Build {p.PackName}", _selected[i]);
-                    EditorGUI.indentLevel++;
-                    //EditorGUILayout.LabelField("Groups:", string.Join(", ", p.groupNames ?? new string[0]));
-                    //EditorGUILayout.LabelField("Subfolder:", string.IsNullOrEmpty(p.remoteSubfolderOverride) ? p.packName : p.remoteSubfolderOverride);
-                    //if (p.labels != null && p.labels.Length > 0)
-                    //    EditorGUILayout.LabelField("Labels:", string.Join(", ", p.labels));
-                    EditorGUI.indentLevel--;
+                    EditorGUILayout.BeginVertical("box");
+
+                    // Header row
+                    EditorGUILayout.BeginHorizontal();
+                    _selected[i] = EditorGUILayout.Toggle(_selected[i], GUILayout.Width(18));
+
+                    _foldouts[i] = EditorGUILayout.Foldout(_foldouts[i], p.PackName, true);
+
+                    GUILayout.FlexibleSpace();
+
+                    // Quick actions
+                    if (GUILayout.Button("Open", GUILayout.MaxWidth(58)))
+                        Selection.activeObject = p;
+
+                    if (GUILayout.Button("Ping", GUILayout.MaxWidth(58)))
+                        EditorGUIUtility.PingObject(p);
+
+                    if (GUILayout.Button("Sync Now", GUILayout.MaxWidth(80)))
+                    {
+                        // call the method on the asset (editor-only method)
+                        p.SyncToAddressables();
+                    }
+                    EditorGUILayout.EndHorizontal();
+
+                    // Info line
+                    using (new EditorGUI.IndentLevelScope())
+                    {
+                        var groupName = p.PackName ;
+                        EditorGUILayout.LabelField("Addressables Group", groupName);
+
+                        int count = p._items != null ? p._items.Count(go => go != null) : 0;
+                        EditorGUILayout.LabelField("Prefabs", count.ToString());
+
+                        // Contents (foldout)
+                        if (_foldouts[i])
+                        {
+                            EditorGUILayout.Space(2);
+                            if (count == 0)
+                            {
+                                EditorGUILayout.HelpBox("Drop prefabs onto this asset to include them in the pack.", MessageType.None);
+                            }
+                            else
+                            {
+                                foreach (var go in p._items)
+                                {
+                                    EditorGUILayout.BeginHorizontal();
+                                    GUIContent icon = EditorGUIUtility.ObjectContent(go, typeof(GameObject));
+                                    GUILayout.Label(icon.image, GUILayout.Width(20), GUILayout.Height(18));
+                                    EditorGUILayout.ObjectField(go, typeof(GameObject), false);
+                                    EditorGUILayout.EndHorizontal();
+                                }
+                            }
+                        }
+                    }
+
                     EditorGUILayout.EndVertical();
                 }
                 EditorGUILayout.EndScrollView();
@@ -187,10 +241,8 @@ namespace ContentTools.Editor
                 manifestFileName = null,
                 setPlayerVersionOverride = true,
 
-                // Single, simple field wired here:
                 sessionRemoteBuildRootOverride = string.IsNullOrEmpty(_buildLocation) ? null : _buildLocation,
                 sessionRemoteLoadRootOverride = "{UnityEngine.AddressableAssets.Addressables.RuntimePath}",
-                //forceLocalPaths = true, // preserved if you re-enable this later
             };
 
             int built = 0;

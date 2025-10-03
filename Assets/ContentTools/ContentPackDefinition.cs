@@ -9,15 +9,13 @@ namespace ContentTools
     public class ContentPackDefinition : ScriptableObject
     {
         public string PackName => _packName;
-        [SerializeField] private string _packName;
+        private string _packName;
 
         [Header("Content")]
         [Tooltip("Drop prefabs here to include them in this pack.")]
         public List<GameObject> _items = new List<GameObject>();
         
-        [Header("Addressables Group")]
-        [Tooltip("Group to create/use. If empty, uses this asset's name.")]
-        public string addressablesGroupName;
+        string addressablesGroupName;
 
   private bool autoSyncOnValidate = true;
 
