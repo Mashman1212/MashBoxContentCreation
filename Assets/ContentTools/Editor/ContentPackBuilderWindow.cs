@@ -30,10 +30,10 @@ namespace ContentTools.Editor
         private string _newPackName = "NewContentPack";
         private string _packsFolder; // where to create packs
 
-        [MenuItem("Window/MashBox/Content Pack Builder")]
+        [MenuItem("Window/MashBox/Content Manager")]
         public static void Open()
         {
-            GetWindow<ContentPackBuilderWindow>(true, "Content Pack Builder");
+            GetWindow<ContentPackBuilderWindow>(true, "Content Manager");
         }
 
         private void OnEnable()
@@ -96,10 +96,10 @@ namespace ContentTools.Editor
                 _helpWrap = new GUIStyle(EditorStyles.helpBox) { wordWrap = true, richText = true };
             }
 
-            EditorGUILayout.LabelField("Content Packs", EditorStyles.boldLabel);
-            EditorGUILayout.LabelField(
-                "This window displays your ContentPackDefinition assets and lets you manage their items.\n" +
-                "Tip: You can <b>drag & drop prefabs directly into each pack</b> below.", _helpWrap);
+            EditorGUILayout.LabelField("Content Manager", EditorStyles.boldLabel);
+            //EditorGUILayout.LabelField(
+            //    "This window displays your ContentPackDefinition assets and lets you manage their items.\n" +
+            //    "Tip: You can <b>drag & drop prefabs directly into each pack</b> below.", _helpWrap);
 
             GUILayout.Space(4);
 
@@ -131,13 +131,13 @@ namespace ContentTools.Editor
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField("Packs Folder", GUILayout.Width(140));
+                EditorGUILayout.LabelField("Pack Definitions Data Folder", GUILayout.Width(180));
                 EditorGUI.BeginChangeCheck();
                 _packsFolder = EditorGUILayout.TextField(_packsFolder, GUILayout.MinWidth(250), GUILayout.ExpandWidth(true));
                 if (EditorGUI.EndChangeCheck())
                     EditorPrefs.SetString(PREF_KEY_PACKS_FOLDER, _packsFolder);
 
-                if (GUILayout.Button("Select", GUILayout.Width(80)))
+                if (GUILayout.Button("Browse", GUILayout.Width(80)))
                 {
                     var start = string.IsNullOrEmpty(_packsFolder)
                         ? Application.dataPath
