@@ -28,7 +28,7 @@ namespace ContentTools.Editor
         private string _newPackName = "NewContentPack";
         private string _packsFolder; // where to create packs
 
-        [MenuItem("Window/Addressables/Content Pack Builder")]
+        [MenuItem("Window/MashBox/Content Pack Builder")]
         public static void Open()
         {
             GetWindow<ContentPackBuilderWindow>(true, "Content Pack Builder");
@@ -67,6 +67,11 @@ namespace ContentTools.Editor
             _selected = new bool[_packs.Length];
             _foldouts = new bool[_packs.Length];
 
+            foreach (ContentPackDefinition pack in _packs)
+            {
+                pack.OnValidate();
+            }
+            
             for (int i = 0; i < _selected.Length; i++)
             {
                 _selected[i] = true;
@@ -84,6 +89,7 @@ namespace ContentTools.Editor
                 if (GUILayout.Button("Refresh")) OnEnable();
                 return;
             }
+            
 
             // ===== Build Location =====
             EditorGUILayout.Space();
@@ -155,7 +161,7 @@ namespace ContentTools.Editor
 
                 // Create row
                 EditorGUILayout.BeginHorizontal();
-                _newPackName = EditorGUILayout.TextField(new GUIContent("New Pack Name"), _newPackName);
+                _newPackName = EditorGUILayout.TextField(new GUIContent("New Pack Name"), _newPackName,GUILayout.MinWidth(300));
                 GUI.enabled = !string.IsNullOrWhiteSpace(_newPackName);
                 if (GUILayout.Button("Create Pack", GUILayout.MaxWidth(110)))
                 {
@@ -255,6 +261,7 @@ namespace ContentTools.Editor
             if (GUILayout.Button("Build All")) BuildSelected(true);
             if (GUILayout.Button("Refresh")) RefreshPacks();
             EditorGUILayout.EndHorizontal();
+            
         }
 
         private void BuildSelected(bool all)
@@ -315,6 +322,8 @@ namespace ContentTools.Editor
             string path = AssetDatabase.GenerateUniqueAssetPath(Path.Combine(folder, name + ".asset"));
 
             var asset = ScriptableObject.CreateInstance<ContentPackDefinition>();
+            asset.OnValidate();
+            
             AssetDatabase.CreateAsset(asset, path);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -365,6 +374,8 @@ namespace ContentTools.Editor
             AssetDatabase.DeleteAsset(path);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
+            
+            RefreshPacks();
         }
     }
 }

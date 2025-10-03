@@ -44,7 +44,7 @@ namespace ContentTools
             }
         }
 
-        private void OnValidate()
+        public void OnValidate()
         {
             _packName = name;
 

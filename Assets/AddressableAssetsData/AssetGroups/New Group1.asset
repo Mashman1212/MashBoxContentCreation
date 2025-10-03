@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
-  m_Name: MyContentPackA
+  m_Name: New Group1
   m_EditorClassIdentifier: 
-  m_GroupName: MyContentPackA
+  m_GroupName: New Group1
   m_Data:
     m_SerializedData: []
-  m_GUID: 9941baf5aac9834428245d9b6a3c7f56
+  m_GUID: 302ad60cab7749d48a4bfe133f611cac
   m_SerializeEntries: []
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 85e86262ea4599442b5c45058f2a82e2, type: 2}
   m_SchemaSet:
     m_Schemas:
-    - {fileID: 11400000, guid: d8b2723b8ff190943a728f968cf7bc2d, type: 2}
+    - {fileID: 11400000, guid: 01260fa03d8336d41bf39c0e291b8fc9, type: 2}
