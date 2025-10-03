@@ -10,21 +10,24 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
-  m_Name: SampleBundleTwo
+  m_Name: MyContentPackB
   m_EditorClassIdentifier: 
-  m_GroupName: SampleBundleTwo
+  m_GroupName: MyContentPackB
   m_Data:
     m_SerializedData: []
-  m_GUID: 00dfc092c59b61a489b522a20eec1be7
+  m_GUID: 9acae344950a07b4b862a5dab34212a9
   m_SerializeEntries:
-  - m_GUID: 31c25bbba99109b4bb04837cf403826a
-    m_Address: BMX_Frame_Vanilla_Bean_Yellow
+  - m_GUID: a21986ae3dcb36141abce3c383d615ad
+    m_Address: Scooter_Deck_Vanilla_Bean_Purple
     m_ReadOnly: 0
-    m_SerializedLabels: []
+    m_SerializedLabels:
+    - Scooter
+    - Deck
+    - Vanilla
+    - Purple
     FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 85e86262ea4599442b5c45058f2a82e2, type: 2}
   m_SchemaSet:
     m_Schemas:
-    - {fileID: 11400000, guid: 109a941a98a2176409df2bc2d721846d, type: 2}
-    - {fileID: 11400000, guid: e7ce08006887158498f6c0989b939f29, type: 2}
+    - {fileID: 11400000, guid: 801d92d6a6fc06e4f87d57a214e72a1b, type: 2}

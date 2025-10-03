@@ -10,36 +10,42 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
-  m_Name: SampleContentPack
+  m_Name: MyContentPackA
   m_EditorClassIdentifier: 
-  m_GroupName: SampleContentPack
+  m_GroupName: MyContentPackA
   m_Data:
     m_SerializedData: []
-  m_GUID: ca6871fa0f1842149adef5413fa7807b
+  m_GUID: 9941baf5aac9834428245d9b6a3c7f56
   m_SerializeEntries:
-  - m_GUID: a21986ae3dcb36141abce3c383d615ad
-    m_Address: Scooter_Deck_Vanilla_Bean_Purple
+  - m_GUID: 9842689d281eed346aa508a5c1026051
+    m_Address: BMX_Frame_Vanilla_Bean_Purple_2
     m_ReadOnly: 0
-    m_SerializedLabels: []
+    m_SerializedLabels:
+    - BMX
+    - Frame
+    - Vanilla
+    - Purple
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 32d03241651ccd44bac24aa3e0edebfd
-    m_Address: Scooter_Deck_Vanilla_Bean_Orange
+  - m_GUID: 31c25bbba99109b4bb04837cf403826a
+    m_Address: BMX_Frame_Vanilla_Bean_Yellow_2
     m_ReadOnly: 0
-    m_SerializedLabels: []
+    m_SerializedLabels:
+    - BMX
+    - Frame
+    - Vanilla
+    - Yellow
     FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 098ed74fe8b1e49459be3d9ea71f23a2
-    m_Address: BMX_Frame_Vanilla_Bean_Orange
+    m_Address: BMX_Frame_Vanilla_Bean_Orange_2
     m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 9842689d281eed346aa508a5c1026051
-    m_Address: BMX_Frame_Vanilla_Bean_Purple
-    m_ReadOnly: 0
-    m_SerializedLabels: []
+    m_SerializedLabels:
+    - BMX
+    - Frame
+    - Vanilla
+    - Orange
     FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 85e86262ea4599442b5c45058f2a82e2, type: 2}
   m_SchemaSet:
     m_Schemas:
-    - {fileID: 11400000, guid: 8d1e60aa0681bd0468d2eecb2ee92d56, type: 2}
-    - {fileID: 11400000, guid: f07bf1f1e0bc36c448c06236b937e8f5, type: 2}
+    - {fileID: 11400000, guid: d8b2723b8ff190943a728f968cf7bc2d, type: 2}

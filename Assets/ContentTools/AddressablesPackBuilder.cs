@@ -39,7 +39,6 @@ namespace ContentTools.Editor
             public string catalogLocalPath;
             public string bundlesRemoteRoot;
             public string bundlesLocalPath;
-            public string[] groupsIncluded;
         }
 
         private class GroupState
@@ -83,20 +82,20 @@ namespace ContentTools.Editor
             var settings = AddressableAssetSettingsDefaultObject.Settings;
             if (settings == null) { Debug.LogError("Addressables settings not found."); return; }
 
-            if (def.groupNames == null || def.groupNames.Length == 0)
-            {
-                Debug.LogError($"Pack {def.packName}: No groups specified.");
-                return;
-            }
+            //if (def.groupNames == null || def.groupNames.Length == 0)
+            //{
+            //    Debug.LogError($"Pack {def.packName}: No groups specified.");
+            //    return;
+            //}
 
-            foreach (var g in def.groupNames)
-            {
-                if (settings.FindGroup(g) == null)
-                {
-                    Debug.LogError($"Pack {def.packName}: Group not found: {g}");
-                    return;
-                }
-            }
+            //foreach (var g in def.groupNames)
+            //{
+            //    if (settings.FindGroup(g) == null)
+            //    {
+            //        Debug.LogError($"Pack {def.packName}: Group not found: {g}");
+            //        return;
+            //    }
+            //}
 
             if (string.IsNullOrEmpty(opts.profileId))
                 opts.profileId = settings.activeProfileId;
@@ -104,7 +103,7 @@ namespace ContentTools.Editor
             var prof = settings.profileSettings;
             var profileName = prof.GetProfileName(opts.profileId);
 
-            string sub = string.IsNullOrEmpty(def.remoteSubfolderOverride) ? def.packName : def.remoteSubfolderOverride;
+            string sub = def.PackName;
 
             // --- Backups ---
             bool prevRemoteCatalog = settings.BuildRemoteCatalog;
@@ -113,10 +112,11 @@ namespace ContentTools.Editor
             string prevRemoteCatalogLoadVarId  = settings.RemoteCatalogLoadPath  != null ? settings.RemoteCatalogLoadPath.Id  : null;
 
             if (opts.enableRemoteCatalog) settings.BuildRemoteCatalog = true;
-            if (opts.setPlayerVersionOverride) settings.OverridePlayerVersion = $"{def.packName}";
+            if (opts.setPlayerVersionOverride) settings.OverridePlayerVersion = $"{def.PackName}";
 
             // Track groups + originals
-            var groupSet = new HashSet<string>(def.groupNames);
+            var groupSet = new HashSet<string>();
+            groupSet.Add(def.PackName);
             var tracked = new List<GroupState>();
 
             foreach (var g in settings.groups.Where(x => x != null && groupSet.Contains(x.Name)))
@@ -149,7 +149,7 @@ namespace ContentTools.Editor
 
             if (tracked.Count == 0)
             {
-                Debug.LogError($"Pack {def.packName}: No valid groups with BundledAssetGroupSchema.");
+                Debug.LogError($"Pack {def.PackName}: No valid groups with BundledAssetGroupSchema.");
                 return;
             }
 
@@ -172,8 +172,8 @@ namespace ContentTools.Editor
             string loadPathValue  = ToFileURL(packBuildFolder); // file:/// url
 
             // Create pack-scoped profile vars (by NAME) and set values
-            string packBuildVarName = EnsureProfileVar(prof, $"Pack_{def.packName}_BuildPath", buildPathValue);
-            string packLoadVarName  = EnsureProfileVar(prof, $"Pack_{def.packName}_LoadPath",  loadPathValue);
+            string packBuildVarName = EnsureProfileVar(prof, $"Pack_{def.PackName}_BuildPath", buildPathValue);
+            string packLoadVarName  = EnsureProfileVar(prof, $"Pack_{def.PackName}_LoadPath",  loadPathValue);
 
             var backups = new List<ProfileOverrideBackup>();
             foreach (var (name, val) in new[] { (packBuildVarName, buildPathValue), (packLoadVarName, loadPathValue) })
@@ -293,7 +293,7 @@ namespace ContentTools.Editor
                 {
                     var manifest = new PackBuildManifest
                     {
-                        packName = def.packName,
+                        packName = def.PackName,
                         version = "1.0.0",
                         buildTarget = EditorUserBuildSettings.activeBuildTarget.ToString(),
                         profileName = profileName,
@@ -304,9 +304,8 @@ namespace ContentTools.Editor
                             ? (dynamicBaseForCatalog.Replace("\\", "/") + "/" + sub)
                             : loadPathValue,
                         bundlesLocalPath = serverData,
-                        groupsIncluded = def.groupNames
                     };
-                    string fileName = string.IsNullOrEmpty(opts.manifestFileName) ? $"{def.packName}.manifest.json" : opts.manifestFileName;
+                    string fileName = string.IsNullOrEmpty(opts.manifestFileName) ? $"{def.PackName}.manifest.json" : opts.manifestFileName;
                     string manifestPath = Path.Combine(serverData, fileName);
                     Directory.CreateDirectory(Path.GetDirectoryName(manifestPath) ?? serverData);
                     File.WriteAllText(manifestPath, JsonUtility.ToJson(manifest, true));
@@ -315,12 +314,8 @@ namespace ContentTools.Editor
 
                 if (!string.IsNullOrEmpty(catalogLocal))
                 {
-                    Debug.Log($"Pack '{def.packName}' built.\nCatalog local: {catalogLocal}\nLoad this at runtime: {catalogRemoteUrl}");
-                    if (def.copyCatalogPathToClipboard)
-                    {
-                        EditorGUIUtility.systemCopyBuffer = catalogRemoteUrl;
-                        Debug.Log("Copied catalog URL to clipboard");
-                    }
+                    Debug.Log($"Pack '{def.PackName}' built.\nCatalog local: {catalogLocal}\nLoad this at runtime: {catalogRemoteUrl}");
+
                 }
                 else
                 {

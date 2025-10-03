@@ -10,6 +10,9 @@ namespace ContentTools.Editor
 {
     public class ContentPackBuilderWindow : EditorWindow
     {
+        // ---- EditorPrefs key for persistence ----
+        private const string PREF_KEY_BUILD_LOCATION = "ContentPackBuilder.BuildLocation";
+
         private ContentPackDefinition[] _packs;
         private bool[] _selected;
 
@@ -30,8 +33,19 @@ namespace ContentTools.Editor
         private void OnEnable()
         {
             _settings = AddressableAssetSettingsDefaultObject.Settings;
+            // Load persisted build location
+            _buildLocation = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
             RefreshProfiles();
             RefreshPacks();
+        }
+
+        private void OnDisable()
+        {
+            // Persist current value when window closes / domain reloads
+            if (!string.IsNullOrEmpty(_buildLocation))
+                EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
+            else
+                EditorPrefs.DeleteKey(PREF_KEY_BUILD_LOCATION);
         }
 
         private void RefreshProfiles()
@@ -86,14 +100,31 @@ namespace ContentTools.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Build Location", EditorStyles.boldLabel);
             EditorGUILayout.BeginHorizontal();
-            _buildLocation = EditorGUILayout.TextField(
+
+            EditorGUI.BeginChangeCheck();
+            var newBuildLocation = EditorGUILayout.TextField(
                 new GUIContent("Build Location", "Filesystem folder where this tool will emit bundles for the selected packs.\n" +
                                                   "You can use tokens like [BuildTarget] and {pack}."),
                 _buildLocation);
+            if (EditorGUI.EndChangeCheck())
+            {
+                _buildLocation = (newBuildLocation ?? string.Empty).Replace("\\", "/");
+                // Save on change
+                if (!string.IsNullOrEmpty(_buildLocation))
+                    EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
+                else
+                    EditorPrefs.DeleteKey(PREF_KEY_BUILD_LOCATION);
+            }
+
             if (GUILayout.Button("Browse", GUILayout.MaxWidth(70)))
             {
-                string picked = EditorUtility.OpenFolderPanel("Select Build Location", Application.dataPath, "");
-                if (!string.IsNullOrEmpty(picked)) _buildLocation = picked.Replace("\\", "/");
+                string picked = EditorUtility.OpenFolderPanel("Select Build Location", 
+                    string.IsNullOrEmpty(_buildLocation) ? Application.dataPath : _buildLocation, "");
+                if (!string.IsNullOrEmpty(picked))
+                {
+                    _buildLocation = picked.Replace("\\", "/");
+                    EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation); // Save immediately after browse
+                }
             }
             EditorGUILayout.EndHorizontal();
 
@@ -112,10 +143,10 @@ namespace ContentTools.Editor
                 {
                     EditorGUILayout.BeginVertical("box");
                     var p = _packs[i];
-                    _selected[i] = EditorGUILayout.ToggleLeft($"Build {p.packName}", _selected[i]);
+                    _selected[i] = EditorGUILayout.ToggleLeft($"Build {p.PackName}", _selected[i]);
                     EditorGUI.indentLevel++;
-                    EditorGUILayout.LabelField("Groups:", string.Join(", ", p.groupNames ?? new string[0]));
-                    EditorGUILayout.LabelField("Subfolder:", string.IsNullOrEmpty(p.remoteSubfolderOverride) ? p.packName : p.remoteSubfolderOverride);
+                    //EditorGUILayout.LabelField("Groups:", string.Join(", ", p.groupNames ?? new string[0]));
+                    //EditorGUILayout.LabelField("Subfolder:", string.IsNullOrEmpty(p.remoteSubfolderOverride) ? p.packName : p.remoteSubfolderOverride);
                     if (p.labels != null && p.labels.Length > 0)
                         EditorGUILayout.LabelField("Labels:", string.Join(", ", p.labels));
                     EditorGUI.indentLevel--;
@@ -146,13 +177,6 @@ namespace ContentTools.Editor
                 return;
             }
 
-            // Sane defaults (since we removed the checkboxes):
-            // - Enable remote catalog
-            // - Only include the selected pack's groups
-            // - Write manifest JSON
-            // - Set OverridePlayerVersion per pack
-            // - Use the single Build Location as the build root (filesystem)
-            // - Load root defaults to runtime path token
             var opts = new AddressablesPackBuilder.BuildOptions
             {
                 profileId = _profileIds[_profileIndex],
@@ -166,9 +190,7 @@ namespace ContentTools.Editor
                 // Single, simple field wired here:
                 sessionRemoteBuildRootOverride = string.IsNullOrEmpty(_buildLocation) ? null : _buildLocation,
                 sessionRemoteLoadRootOverride = "{UnityEngine.AddressableAssets.Addressables.RuntimePath}",
-
-                // Preserve local-path semantics for selected groups
-                forceLocalPaths = true,
+                //forceLocalPaths = true, // preserved if you re-enable this later
             };
 
             int built = 0;
