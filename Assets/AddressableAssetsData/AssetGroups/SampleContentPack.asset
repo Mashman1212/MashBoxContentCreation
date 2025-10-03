@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: SampleContentPack
+  m_EditorClassIdentifier: 
+  m_GroupName: SampleContentPack
+  m_Data:
+    m_SerializedData: []
+  m_GUID: ca6871fa0f1842149adef5413fa7807b
+  m_SerializeEntries:
+  - m_GUID: a21986ae3dcb36141abce3c383d615ad
+    m_Address: Scooter_Deck_Vanilla_Bean_Purple
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 32d03241651ccd44bac24aa3e0edebfd
+    m_Address: Scooter_Deck_Vanilla_Bean_Orange
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 098ed74fe8b1e49459be3d9ea71f23a2
+    m_Address: BMX_Frame_Vanilla_Bean_Orange
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9842689d281eed346aa508a5c1026051
+    m_Address: BMX_Frame_Vanilla_Bean_Purple
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 85e86262ea4599442b5c45058f2a82e2, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 8d1e60aa0681bd0468d2eecb2ee92d56, type: 2}
+    - {fileID: 11400000, guid: f07bf1f1e0bc36c448c06236b937e8f5, type: 2}
