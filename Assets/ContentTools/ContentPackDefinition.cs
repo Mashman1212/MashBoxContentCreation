@@ -15,7 +15,11 @@ namespace ContentTools
         [Tooltip("Drop prefabs here to include them in this pack.")]
         public List<GameObject> _items = new List<GameObject>();
         
+        [Header("Addressables Group")]
+        [Tooltip("Group to create/use. If empty, uses this asset's name.")]
+        public string addressablesGroupName;
 
+  private bool autoSyncOnValidate = true;
 
 #if UNITY_EDITOR
         // ---------------- Editor-only sync logic ----------------
@@ -45,7 +49,8 @@ namespace ContentTools
         private void OnValidate()
         {
             _packName = name;
-            
+
+            if (!autoSyncOnValidate) return;
             if (Application.isPlaying) return;         // don't mutate Addressables in play mode
             if (_syncInProgress) return;               // currently syncing from a previous call
 
@@ -82,7 +87,7 @@ namespace ContentTools
                 }
 
                 // Decide which group name to use
-                string groupName = PackName;
+                string groupName = string.IsNullOrWhiteSpace(addressablesGroupName) ? PackName : addressablesGroupName.Trim();
 
                 // Ensure group exists with a BundledAssetGroupSchema
                 var group = settings.FindGroup(groupName);
@@ -157,7 +162,10 @@ namespace ContentTools
                     // Simplify address: use file name without extension; ensure unique within group
                     var baseName = System.IO.Path.GetFileNameWithoutExtension(path);
                     string address = baseName;
-                    while (usedAddresses.Contains(address)) address = $"{baseName}";
+                    //int n = 2;
+                    //while (usedAddresses.Contains(address))
+                    //    address = $"{baseName}_{n++}";
+
                     if (entry.address != address)
                     {
                         entry.SetAddress(address);
