@@ -5,25 +5,28 @@ using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
+using System.IO;
 
 namespace ContentTools.Editor
 {
     public class ContentPackBuilderWindow : EditorWindow
     {
-        // ---- EditorPrefs key for persistence ----
+        // ---- EditorPrefs keys for persistence ----
         private const string PREF_KEY_BUILD_LOCATION = "ContentPackBuilder.BuildLocation";
+        private const string PREF_KEY_PACKS_FOLDER   = "ContentPackBuilder.PacksFolder";
 
         private ContentPackDefinition[] _packs;
         private bool[] _selected;
-        private bool[] _foldouts; // new: show pack contents
+        private bool[] _foldouts; // show pack contents
 
         private AddressableAssetSettings _settings;
-        private int _profileIndex;
-        private string[] _profileNames;
-        private string[] _profileIds;
 
         // Single, simple destination for bundles/manifests
         private string _buildLocation = string.Empty; // filesystem folder
+
+        // Creation helpers
+        private string _newPackName = "NewContentPack";
+        private string _packsFolder; // where to create packs
 
         [MenuItem("Window/Addressables/Content Pack Builder")]
         public static void Open()
@@ -35,7 +38,7 @@ namespace ContentTools.Editor
         {
             _settings = AddressableAssetSettingsDefaultObject.Settings;
             _buildLocation = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
-            RefreshProfiles();
+            _packsFolder   = EditorPrefs.GetString(PREF_KEY_PACKS_FOLDER, "Assets/ContentPacks");
             RefreshPacks();
         }
 
@@ -45,28 +48,11 @@ namespace ContentTools.Editor
                 EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
             else
                 EditorPrefs.DeleteKey(PREF_KEY_BUILD_LOCATION);
-        }
 
-        private void RefreshProfiles()
-        {
-            if (_settings == null) return;
-            var ps = _settings.profileSettings;
-
-            var ids = new List<string>();
-            var names = new List<string>();
-
-            var activeId = _settings.activeProfileId;
-            var activeName = ps.GetProfileName(activeId);
-            if (string.IsNullOrEmpty(activeName)) activeName = "Default";
-
-            ids.Add(activeId);
-            names.Add(activeName);
-
-            _profileIds = ids.ToArray();
-            _profileNames = names.ToArray();
-
-            _profileIndex = System.Array.IndexOf(_profileIds, _settings.activeProfileId);
-            if (_profileIndex < 0) _profileIndex = 0;
+            if (!string.IsNullOrEmpty(_packsFolder))
+                EditorPrefs.SetString(PREF_KEY_PACKS_FOLDER, _packsFolder);
+            else
+                EditorPrefs.DeleteKey(PREF_KEY_PACKS_FOLDER);
         }
 
         private void RefreshPacks()
@@ -75,6 +61,7 @@ namespace ContentTools.Editor
             _packs = guids
                 .Select(g => AssetDatabase.LoadAssetAtPath<ContentPackDefinition>(AssetDatabase.GUIDToAssetPath(g)))
                 .Where(p => p != null)
+                .OrderBy(p => p.PackName)
                 .ToArray();
 
             _selected = new bool[_packs.Length];
@@ -98,12 +85,7 @@ namespace ContentTools.Editor
                 return;
             }
 
-            // Profile
-            EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Profile", EditorStyles.boldLabel);
-            _profileIndex = EditorGUILayout.Popup("Build Profile", _profileIndex, _profileNames);
-
-            // Build Location (single field)
+            // ===== Build Location =====
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Build Location", EditorStyles.boldLabel);
             EditorGUILayout.BeginHorizontal();
@@ -135,12 +117,71 @@ namespace ContentTools.Editor
             }
             EditorGUILayout.EndHorizontal();
 
-            // Packs list
+            // ===== Create / Delete Packs =====
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Manage Packs", EditorStyles.boldLabel);
+
+            using (new EditorGUILayout.VerticalScope("box"))
+            {
+                // Folder selector
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField("Packs Folder", GUILayout.Width(95));
+                EditorGUI.BeginChangeCheck();
+                _packsFolder = EditorGUILayout.TextField(_packsFolder);
+                if (EditorGUI.EndChangeCheck())
+                {
+                    if (!string.IsNullOrEmpty(_packsFolder))
+                        EditorPrefs.SetString(PREF_KEY_PACKS_FOLDER, _packsFolder);
+                }
+                if (GUILayout.Button("Choose…", GUILayout.MaxWidth(80)))
+                {
+                    string start = string.IsNullOrEmpty(_packsFolder) ? "Assets" : _packsFolder;
+                    var abs = EditorUtility.OpenFolderPanel("Choose Packs Folder", Application.dataPath, "");
+                    if (!string.IsNullOrEmpty(abs))
+                    {
+                        if (!abs.StartsWith(Application.dataPath))
+                        {
+                            EditorUtility.DisplayDialog("Invalid Folder",
+                                "Please pick a folder under your project's Assets/ directory.", "OK");
+                        }
+                        else
+                        {
+                            _packsFolder = "Assets" + abs.Substring(Application.dataPath.Length);
+                            EditorPrefs.SetString(PREF_KEY_PACKS_FOLDER, _packsFolder);
+                        }
+                    }
+                }
+                EditorGUILayout.EndHorizontal();
+
+                // Create row
+                EditorGUILayout.BeginHorizontal();
+                _newPackName = EditorGUILayout.TextField(new GUIContent("New Pack Name"), _newPackName);
+                GUI.enabled = !string.IsNullOrWhiteSpace(_newPackName);
+                if (GUILayout.Button("Create Pack", GUILayout.MaxWidth(110)))
+                {
+                    CreatePackAsset(_newPackName.Trim(), _packsFolder);
+                    _newPackName = "NewContentPack";
+                }
+                GUI.enabled = true;
+
+                GUILayout.FlexibleSpace();
+
+                // Delete selected
+                GUI.enabled = _packs != null && _packs.Length > 0 && _selected.Any(x => x);
+                if (GUILayout.Button("Delete Selected", GUILayout.MaxWidth(130)))
+                {
+                    DeleteSelectedPacks();
+                }
+                GUI.enabled = true;
+                EditorGUILayout.EndHorizontal();
+            }
+
+            // ===== Packs list =====
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Packs", EditorStyles.boldLabel);
             if (_packs == null || _packs.Length == 0)
             {
-                EditorGUILayout.HelpBox("No ContentPackDefinition assets found. Create one via Create → Addressables → Content Pack.", MessageType.Info);
+                EditorGUILayout.HelpBox("No ContentPackDefinition assets found. Create one above.", MessageType.Info);
                 if (GUILayout.Button("Refresh")) RefreshPacks();
             }
             else
@@ -154,9 +195,7 @@ namespace ContentTools.Editor
                     // Header row
                     EditorGUILayout.BeginHorizontal();
                     _selected[i] = EditorGUILayout.Toggle(_selected[i], GUILayout.Width(18));
-
                     _foldouts[i] = EditorGUILayout.Foldout(_foldouts[i], p.PackName, true);
-
                     GUILayout.FlexibleSpace();
 
                     // Quick actions
@@ -167,22 +206,22 @@ namespace ContentTools.Editor
                         EditorGUIUtility.PingObject(p);
 
                     if (GUILayout.Button("Sync Now", GUILayout.MaxWidth(80)))
-                    {
-                        // call the method on the asset (editor-only method)
                         p.SyncToAddressables();
-                    }
+
+                    if (GUILayout.Button("Delete", GUILayout.MaxWidth(70)))
+                        DeletePack(p);
+
                     EditorGUILayout.EndHorizontal();
 
-                    // Info line
+                    // Info + contents
                     using (new EditorGUI.IndentLevelScope())
                     {
-                        var groupName = p.PackName ;
+                        var groupName = p.PackName;
                         EditorGUILayout.LabelField("Addressables Group", groupName);
 
                         int count = p._items != null ? p._items.Count(go => go != null) : 0;
                         EditorGUILayout.LabelField("Prefabs", count.ToString());
 
-                        // Contents (foldout)
                         if (_foldouts[i])
                         {
                             EditorGUILayout.Space(2);
@@ -209,31 +248,27 @@ namespace ContentTools.Editor
                 EditorGUILayout.EndScrollView();
             }
 
-            // Actions
+            // ===== Actions =====
             EditorGUILayout.Space();
             EditorGUILayout.BeginHorizontal();
             if (GUILayout.Button("Build Selected")) BuildSelected(false);
             if (GUILayout.Button("Build All")) BuildSelected(true);
-            if (GUILayout.Button("Refresh")) { RefreshProfiles(); RefreshPacks(); }
+            if (GUILayout.Button("Refresh")) RefreshPacks();
             EditorGUILayout.EndHorizontal();
         }
 
         private void BuildSelected(bool all)
         {
-            if (_profileIds == null || _profileIds.Length == 0)
+            if (_settings == null)
             {
-                Debug.LogError("No Addressables profile available.");
-                return;
-            }
-            if (_profileIndex < 0 || _profileIndex >= _profileIds.Length)
-            {
-                Debug.LogError("Invalid profile index.");
+                Debug.LogError("Addressables settings not found.");
                 return;
             }
 
             var opts = new AddressablesPackBuilder.BuildOptions
             {
-                profileId = _profileIds[_profileIndex],
+                // Hidden from UI: just use active profile
+                profileId = _settings.activeProfileId,
                 rebuildPlayerContent = true,
                 enableRemoteCatalog = true,
                 disableOtherGroups = true,
@@ -253,6 +288,83 @@ namespace ContentTools.Editor
                 built++;
             }
             Debug.Log(built > 0 ? $"Built {built} content pack(s)." : "Nothing to build.");
+        }
+
+        // ===== Create / Delete helpers =====
+
+        private void CreatePackAsset(string name, string folder)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+
+            // Ensure folder
+            if (string.IsNullOrEmpty(folder)) folder = "Assets/ContentPacks";
+            if (!AssetDatabase.IsValidFolder(folder))
+            {
+                string parent = "Assets";
+                foreach (var seg in folder.Replace("\\", "/").Split('/').Skip(1))
+                {
+                    if (string.IsNullOrEmpty(seg)) continue;
+                    string next = parent + "/" + seg;
+                    if (!AssetDatabase.IsValidFolder(next))
+                        AssetDatabase.CreateFolder(parent, seg);
+                    parent = next;
+                }
+            }
+
+            // Unique asset path
+            string path = AssetDatabase.GenerateUniqueAssetPath(Path.Combine(folder, name + ".asset"));
+
+            var asset = ScriptableObject.CreateInstance<ContentPackDefinition>();
+            AssetDatabase.CreateAsset(asset, path);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            Selection.activeObject = asset;
+            EditorGUIUtility.PingObject(asset);
+
+            RefreshPacks();
+        }
+
+        private void DeleteSelectedPacks()
+        {
+            var toDelete = new List<ContentPackDefinition>();
+            for (int i = 0; i < _packs.Length; i++)
+                if (_selected[i]) toDelete.Add(_packs[i]);
+
+            if (toDelete.Count == 0) return;
+
+            if (!EditorUtility.DisplayDialog("Delete Packs",
+                $"Delete {toDelete.Count} pack asset(s)?\n(This removes the .asset files; Addressables groups remain.)",
+                "Delete", "Cancel"))
+            {
+                return;
+            }
+
+            foreach (var p in toDelete)
+                DeletePack(p, silent: true);
+
+            RefreshPacks();
+        }
+
+        private void DeletePack(ContentPackDefinition p, bool silent = false)
+        {
+            if (p == null) return;
+            string path = AssetDatabase.GetAssetPath(p);
+            if (string.IsNullOrEmpty(path)) return;
+
+            if (!silent)
+            {
+                if (!EditorUtility.DisplayDialog("Delete Pack",
+                    $"Delete pack asset '{p.PackName}'?\n(This removes only the .asset, not the Addressables group.)",
+                    "Delete", "Cancel"))
+                {
+                    return;
+                }
+            }
+
+            AssetDatabase.DeleteAsset(path);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
         }
     }
 }
