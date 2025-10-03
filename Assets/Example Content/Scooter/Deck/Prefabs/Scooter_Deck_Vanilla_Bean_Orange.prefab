@@ -11,7 +11,7 @@ PrefabInstance:
     - target: {fileID: 4112111533705236566, guid: 5a67a3a68c8369946847a468761a4b62,
         type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: 8.377772
       objectReference: {fileID: 0}
     - target: {fileID: 4112111533705236566, guid: 5a67a3a68c8369946847a468761a4b62,
         type: 3}
@@ -21,7 +21,7 @@ PrefabInstance:
     - target: {fileID: 4112111533705236566, guid: 5a67a3a68c8369946847a468761a4b62,
         type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 2.8823054
       objectReference: {fileID: 0}
     - target: {fileID: 4112111533705236566, guid: 5a67a3a68c8369946847a468761a4b62,
         type: 3}
@@ -68,7 +68,17 @@ PrefabInstance:
       propertyPath: m_Name
       value: Scooter_Deck_Vanilla_Bean_Orange
       objectReference: {fileID: 0}
+    - target: {fileID: 6294780078874279450, guid: 5a67a3a68c8369946847a468761a4b62,
+        type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: 8c99052caf1624a4292cc0e7992c6bce, type: 2}
     - target: {fileID: 6638829926230468107, guid: 5a67a3a68c8369946847a468761a4b62,
+        type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: 2100000, guid: 8c99052caf1624a4292cc0e7992c6bce, type: 2}
+    - target: {fileID: 8544400223332952303, guid: 5a67a3a68c8369946847a468761a4b62,
         type: 3}
       propertyPath: m_Materials.Array.data[0]
       value: 
