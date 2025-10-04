@@ -12,6 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 81f4548504065ce4390701f52bdd5d5e, type: 3}
   m_Name: NewContentPack
   m_EditorClassIdentifier: 
-  _items:
-  - {fileID: 1590703343677695681, guid: a21986ae3dcb36141abce3c383d615ad, type: 3}
-  - {fileID: 1590703343677695681, guid: 32d03241651ccd44bac24aa3e0edebfd, type: 3}
+  _items: []
