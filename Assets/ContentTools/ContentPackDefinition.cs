@@ -297,6 +297,36 @@ namespace ContentTools
 
             return false;
         }
+        
+#if UNITY_EDITOR
+        [ContextMenu("Content/Clean Missing References")]
+        public void RemoveMissingReferences()
+        {
+            if (_items == null || _items.Count == 0) return;
+
+            // Record for undo in the editor
+            UnityEditor.Undo.RecordObject(this, "Remove Missing References from Content Pack");
+
+            int removed = 0;
+            for (int i = _items.Count - 1; i >= 0; i--)
+            {
+                // In Unity, a broken or destroyed reference compares equal to null
+                if (_items[i] == null)
+                {
+                    _items.RemoveAt(i);
+                    removed++;
+                }
+            }
+
+            if (removed > 0)
+            {
+                UnityEditor.EditorUtility.SetDirty(this);
+                UnityEditor.AssetDatabase.SaveAssets();
+                Debug.Log($"[{nameof(ContentPackDefinition)}] Removed {removed} missing reference(s) from {_packName}.");
+            }
+        }
+#endif
+
 #endif
     }
 }

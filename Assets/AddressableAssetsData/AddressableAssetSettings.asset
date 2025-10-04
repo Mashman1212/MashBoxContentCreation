@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 9964a7f3248cfe242b246176ac83973f
   m_currentHash:
     serializedVersion: 2
-    Hash: 9d4f0b50f0843a2fd27d0e3f01da3007
+    Hash: 00000000000000000000000000000000
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 0
@@ -46,6 +46,7 @@ MonoBehaviour:
   m_GroupAssets:
   - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
   - {fileID: 11400000, guid: 5a36b0bd3bb8a4340b5a2331e808a8f8, type: 2}
+  - {fileID: 11400000, guid: a8a73f25162926241b1fa347a771f4b7, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
     m_CleanupStreamingAssetsAfterBuilds: 1
@@ -57,98 +58,98 @@ MonoBehaviour:
       m_Id: eae9937791aa6a449b93372729379f09
       m_ProfileName: Default
       m_Values:
-      - m_Id: 497060f53e35df4479691e7e1d9ba118
-        m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
-      - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
-        m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
-      - m_Id: 654bc31bc64da90439c688e82cafa878
-        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
       - m_Id: 09d982614f436cd409abb0ae6e65e3b3
         m_Value: ServerData/[BuildTarget]
-      - m_Id: c3b1357132e9a5346a88cd86b42ef70e
-        m_Value: http://[PrivateIpAddress]:[HostingServicePort]
-      - m_Id: 1e8a0b29d7a6f6a47994749745c3246d
-        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPack
-      - m_Id: 687ed2394e5497a439119ea6312f977c
-        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/MyContentPack'
-      - m_Id: d5fc01642e5187044baa634272fb55ec
-        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPackA
-      - m_Id: 2feabca73c951e14d9d36540ae9413c6
-        m_Value: file:///D:/MashBoxContentCreation/Assets/Content/MyContentPackA
-      - m_Id: 51118b00c7f9c9f47a9c3e876017c920
-        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPackB
       - m_Id: 0d37e287349628d42a9e4a56ee0f0910
         m_Value: file:///D:/MashBoxContentCreation/Assets/Content/MyContentPackB
+      - m_Id: 1e8a0b29d7a6f6a47994749745c3246d
+        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPack
       - m_Id: 22c2b88bd9cf2ba4dabb6cc7abbd46fe
         m_Value: Content/[BuildTarget]
+      - m_Id: 2feabca73c951e14d9d36540ae9413c6
+        m_Value: file:///D:/MashBoxContentCreation/Assets/Content/MyContentPackA
+      - m_Id: 497060f53e35df4479691e7e1d9ba118
+        m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
+      - m_Id: 51118b00c7f9c9f47a9c3e876017c920
+        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPackB
+      - m_Id: 654bc31bc64da90439c688e82cafa878
+        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
+      - m_Id: 687ed2394e5497a439119ea6312f977c
+        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/MyContentPack'
+      - m_Id: c3b1357132e9a5346a88cd86b42ef70e
+        m_Value: http://[PrivateIpAddress]:[HostingServicePort]
+      - m_Id: d5fc01642e5187044baa634272fb55ec
+        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPackA
+      - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
+        m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
       - m_Id: fb5b59db9642cf74c8b7075494ec299c
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
     - m_InheritedParent: 
       m_Id: 94efe36cdca718b4db60ac91f454d830
       m_ProfileName: MG
       m_Values:
-      - m_Id: 497060f53e35df4479691e7e1d9ba118
-        m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
-      - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
-        m_Value: Content/[BuildTarget]
-      - m_Id: 654bc31bc64da90439c688e82cafa878
-        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
       - m_Id: 09d982614f436cd409abb0ae6e65e3b3
         m_Value: Content/[BuildTarget]
-      - m_Id: c3b1357132e9a5346a88cd86b42ef70e
-        m_Value: file:///{Application.streamingAssetsPath}/Addressables/Customization
-      - m_Id: 1e8a0b29d7a6f6a47994749745c3246d
-        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPack
-      - m_Id: 687ed2394e5497a439119ea6312f977c
-        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/MyContentPack'
-      - m_Id: d5fc01642e5187044baa634272fb55ec
-        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPackA
-      - m_Id: 2feabca73c951e14d9d36540ae9413c6
-        m_Value: file:///D:/MashBoxContentCreation/Assets/Content/MyContentPackA
-      - m_Id: 51118b00c7f9c9f47a9c3e876017c920
-        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPackB
       - m_Id: 0d37e287349628d42a9e4a56ee0f0910
         m_Value: file:///D:/MashBoxContentCreation/Assets/Content/MyContentPackB
+      - m_Id: 1e8a0b29d7a6f6a47994749745c3246d
+        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPack
       - m_Id: 22c2b88bd9cf2ba4dabb6cc7abbd46fe
+        m_Value: Content/[BuildTarget]
+      - m_Id: 2feabca73c951e14d9d36540ae9413c6
+        m_Value: file:///D:/MashBoxContentCreation/Assets/Content/MyContentPackA
+      - m_Id: 497060f53e35df4479691e7e1d9ba118
+        m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
+      - m_Id: 51118b00c7f9c9f47a9c3e876017c920
+        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPackB
+      - m_Id: 654bc31bc64da90439c688e82cafa878
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
+      - m_Id: 687ed2394e5497a439119ea6312f977c
+        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/MyContentPack'
+      - m_Id: c3b1357132e9a5346a88cd86b42ef70e
+        m_Value: file:///{Application.streamingAssetsPath}/Addressables/Customization
+      - m_Id: d5fc01642e5187044baa634272fb55ec
+        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPackA
+      - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
         m_Value: Content/[BuildTarget]
       - m_Id: fb5b59db9642cf74c8b7075494ec299c
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
     m_ProfileEntryNames:
-    - m_Id: 497060f53e35df4479691e7e1d9ba118
-      m_Name: BuildTarget
-      m_InlineUsage: 0
-    - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
-      m_Name: Local.BuildPath
-      m_InlineUsage: 0
-    - m_Id: 654bc31bc64da90439c688e82cafa878
-      m_Name: Local.LoadPath
-      m_InlineUsage: 0
     - m_Id: 09d982614f436cd409abb0ae6e65e3b3
       m_Name: Remote.BuildPath
-      m_InlineUsage: 0
-    - m_Id: c3b1357132e9a5346a88cd86b42ef70e
-      m_Name: Remote.LoadPath
-      m_InlineUsage: 0
-    - m_Id: 1e8a0b29d7a6f6a47994749745c3246d
-      m_Name: Pack_MyContentPack_BuildPath
-      m_InlineUsage: 0
-    - m_Id: 687ed2394e5497a439119ea6312f977c
-      m_Name: Pack_MyContentPack_LoadPath
-      m_InlineUsage: 0
-    - m_Id: d5fc01642e5187044baa634272fb55ec
-      m_Name: Pack_MyContentPackA_BuildPath
-      m_InlineUsage: 0
-    - m_Id: 2feabca73c951e14d9d36540ae9413c6
-      m_Name: Pack_MyContentPackA_LoadPath
-      m_InlineUsage: 0
-    - m_Id: 51118b00c7f9c9f47a9c3e876017c920
-      m_Name: Pack_MyContentPackB_BuildPath
       m_InlineUsage: 0
     - m_Id: 0d37e287349628d42a9e4a56ee0f0910
       m_Name: Pack_MyContentPackB_LoadPath
       m_InlineUsage: 0
+    - m_Id: 1e8a0b29d7a6f6a47994749745c3246d
+      m_Name: Pack_MyContentPack_BuildPath
+      m_InlineUsage: 0
     - m_Id: 22c2b88bd9cf2ba4dabb6cc7abbd46fe
       m_Name: Content_BuildPath
+      m_InlineUsage: 0
+    - m_Id: 2feabca73c951e14d9d36540ae9413c6
+      m_Name: Pack_MyContentPackA_LoadPath
+      m_InlineUsage: 0
+    - m_Id: 497060f53e35df4479691e7e1d9ba118
+      m_Name: BuildTarget
+      m_InlineUsage: 0
+    - m_Id: 51118b00c7f9c9f47a9c3e876017c920
+      m_Name: Pack_MyContentPackB_BuildPath
+      m_InlineUsage: 0
+    - m_Id: 654bc31bc64da90439c688e82cafa878
+      m_Name: Local.LoadPath
+      m_InlineUsage: 0
+    - m_Id: 687ed2394e5497a439119ea6312f977c
+      m_Name: Pack_MyContentPack_LoadPath
+      m_InlineUsage: 0
+    - m_Id: c3b1357132e9a5346a88cd86b42ef70e
+      m_Name: Remote.LoadPath
+      m_InlineUsage: 0
+    - m_Id: d5fc01642e5187044baa634272fb55ec
+      m_Name: Pack_MyContentPackA_BuildPath
+      m_InlineUsage: 0
+    - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
+      m_Name: Local.BuildPath
       m_InlineUsage: 0
     - m_Id: fb5b59db9642cf74c8b7075494ec299c
       m_Name: Customization_LoadPath
