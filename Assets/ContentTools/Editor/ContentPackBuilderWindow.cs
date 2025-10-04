@@ -236,9 +236,11 @@ namespace ContentTools.Editor
                             if (GUILayout.Button("Delete", GUILayout.Width(70)))
                             {
                                 DeletePack(p);
+                                break;
                             }
                         }
 
+                        if(_foldouts.ContainsKey(key))
                         if (_foldouts[key])
                         {
                             DrawPackItemsList(p);
@@ -418,23 +420,47 @@ namespace ContentTools.Editor
         private void DeletePack(ContentPackDefinition p)
         {
             if (p == null) return;
-            var path = AssetDatabase.GetAssetPath(p);
-            if (string.IsNullOrEmpty(path)) return;
 
-            bool confirm = EditorUtility.DisplayDialog(
-                "Delete Content Pack?",
-                $"Delete '{p.name}' from the project?\nThis cannot be undone.",
-                "Delete", "Cancel");
+            var packPath = AssetDatabase.GetAssetPath(p);
+            if (string.IsNullOrEmpty(packPath)) return;
+
+            // Try to find an Addressables group with the same name
+            AddressableAssetGroup matchingGroup = null;
+            if (_settings != null)
+            {
+                matchingGroup = _settings.groups
+                    .FirstOrDefault(g => g != null
+                                         && g.name == p.name
+                                         && !g.ReadOnly        // don't delete built-in / protected groups
+                                         && g != _settings.DefaultGroup);
+            }
+
+            // Build a single confirmation message
+            string msg = matchingGroup != null
+                ? $"Delete content pack '{p.name}' and its Addressables group with the same name?\nThis cannot be undone."
+                : $"Delete content pack '{p.name}' from the project?\n(This pack has no matching writable Addressables group.)\nThis cannot be undone.";
+
+            bool confirm = EditorUtility.DisplayDialog("Delete Content Pack?", msg, "Delete", "Cancel");
             if (!confirm) return;
 
+            // Deselect to avoid Unity selection warnings
             if (Selection.activeObject == p) Selection.activeObject = null;
 
-            AssetDatabase.DeleteAsset(path);
+            // Delete the pack asset
+            AssetDatabase.DeleteAsset(packPath);
+
+            // Delete the Addressables group (if we found one)
+            if (matchingGroup != null)
+            {
+                // This removes it from Settings and deletes the group asset on disk.
+                _settings.RemoveGroup(matchingGroup);
+            }
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-
             RefreshPacks();
         }
+
     }
 }
 #endif

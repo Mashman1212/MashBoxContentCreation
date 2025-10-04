@@ -131,7 +131,7 @@ namespace ContentTools
                 SetBoolIfExists(schema, "IncludeLabelsInCatalog", true);
                 SetEnumIfExists(schema, "BundleMode", "PackTogether");
                 // Different Addressables versions name this enum value differently ("Filename" vs "FileName")
-                SetEnumIfExists(schema, "BundleNaming", "Filename", "FileName");
+                SetEnumIfExists(schema, "BundleNamingMode", "Filename", "FileName");
                 SetEnumIfExists(schema, "InternalIdNamingMode",    "Filename", "FileName");
                 SetEnumIfExists(schema, "InternalAssetNamingMode", "Filename", "FileName");
                 UnityEditor.EditorUtility.SetDirty(schema);
