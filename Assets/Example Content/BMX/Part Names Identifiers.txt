@@ -1,0 +1,27 @@
+BMX_Frame_
+BMX_Bars_
+BMX_Bar End_
+BMX_Forks_
+BMX_Headset_
+BMX_BB_
+BMX_Chain_
+BMX_CrankArm_
+BMX_Front Hub_
+BMX_Rear Hub_
+BMX_Grip_
+BMX_Hub Guard_
+BMX_Mag_
+BMX_Nipples_
+BMX_Pedal_
+BMX_Peg_
+BMX_Rim_
+BMX_Seat_
+BMX_Seat Clamp_
+BMX_Seat Post_
+BMX_Spokes_
+BMX_Sprocket_
+BMX_Stem_
+BMX_Stem Bolt_
+BMX_Stem Cap_
+BMX_Tire_
+BMX_Valve Cap_
