@@ -1,0 +1,78 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f3192067a998d74986964b8ab729773, type: 3}
+  m_Name: ContentValidationRules
+  m_EditorClassIdentifier: 
+  SuperTypes:
+  - Scooter
+  - BMX
+  Colors:
+  - Black
+  - Blue
+  - Red
+  - Green
+  - Purple
+  - Raw
+  - Chrome
+  - Teal
+  - Tan
+  - Orange
+  - Yellow
+  - Pink
+  - White
+  - Grey
+  - Brown
+  - Unique
+  - Gold
+  - Oil Slick
+  AllowedPairs:
+  - SuperType: Scooter
+    Types:
+    - Deck
+    - Bars
+    - Clamp
+    - Forks
+    - Headset
+    - Griptape
+    - Wheel
+    - Urethane
+    - Bar End
+  - SuperType: BMX
+    Types:
+    - Frame
+    - Bars
+    - Bar End
+    - Forks
+    - Headset
+    - BB
+    - Chain
+    - CrankArm
+    - Front Hub
+    - Rear Hub
+    - Grip
+    - Hub Guard
+    - Mag
+    - Nipples
+    - Pedal
+    - Peg
+    - Rim
+    - Seat
+    - Seat Clamp
+    - Seat Post
+    - Spokes
+    - Sprocket
+    - Stem
+    - Stem Bolt
+    - Stem Cap
+    - Tire
+    - Valve Cap
+  AnchorRules: []
