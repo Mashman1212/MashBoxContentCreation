@@ -71,6 +71,7 @@ namespace ContentTools.Editor
                 var key = AssetDatabase.GetAssetPath(p);
                 _foldouts[key] = true;
                 _selected[key] = prevSelected.TryGetValue(key, out var was) ? was : true;
+                p.SyncToAddressables();
             }
         }
 
@@ -227,9 +228,9 @@ namespace ContentTools.Editor
                             _selected[key] = EditorGUILayout.Toggle(_selected[key], GUILayout.Width(18));
                             _foldouts[key] = EditorGUILayout.Foldout(_foldouts[key], p.name, true);
                             GUILayout.FlexibleSpace();
-                            if (GUILayout.Button("Open", GUILayout.Width(70)))
+                            if (GUILayout.Button("Ping", GUILayout.Width(70)))
                             {
-                                Selection.activeObject = p;
+                                //Selection.activeObject = p;
                                 EditorGUIUtility.PingObject(p);
                             }
                             if (GUILayout.Button("Delete", GUILayout.Width(70)))
@@ -365,6 +366,8 @@ namespace ContentTools.Editor
                 Debug.LogWarning("No packs selected to build.");
                 return;
             }
+            
+            RefreshPacks();
 
             // Clean missing items before build (quietly)
             if (cleanMissing)
