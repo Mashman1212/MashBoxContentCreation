@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System;
 using System.Linq;
 using System.Collections.Generic;
 using UnityEditor;
@@ -7,72 +8,143 @@ using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
 using System.IO;
 
+// pull in the icon capture utility
+using Content_Icon_Capture.Editor;
+using Object = UnityEngine.Object;
+
 namespace ContentTools.Editor
 {
+    /// <summary>
+    /// Content Pack Manager:
+    ///  • Forced pack folder: Assets/ContentPacks
+    ///  • Read-only Validation Rules panel + inline item issues
+    ///  • Build hooks capture 2K icons per item before Addressables build
+    ///  • Duplicate name checks only on "Create Pack" click
+    ///  • Drag & Drop prefabs into packs (Project or Hierarchy)
+    /// </summary>
     public class ContentPackBuilderWindow : EditorWindow
     {
-        // ---- EditorPrefs keys for persistence ----
+        private const string FORCED_PACKS_FOLDER = "Assets/ContentPacks";
         private const string PREF_KEY_BUILD_LOCATION = "ContentPackBuilder.BuildLocation";
-        private const string PREF_KEY_PACKS_FOLDER   = "ContentPackBuilder.PacksFolder";
 
-        // cached packs + UI state
-        private List<ContentPackDefinition> _packs = new List<ContentPackDefinition>();
-        private Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
-        private Dictionary<string, bool> _selected = new Dictionary<string, bool>();
+        private readonly List<ContentPackDefinition> _packs = new List<ContentPackDefinition>();
+        private readonly Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
+        private readonly Dictionary<string, bool> _selected = new Dictionary<string, bool>();
 
-        // Addressables settings (for active profile id)
         private AddressableAssetSettings _settings;
+        private string _buildLocation = string.Empty;
 
-        // Single, simple destination for bundles/manifests
-        private string _buildLocation = string.Empty; // filesystem folder
-
-        // Creation helpers
         private string _newPackName = "NewContentPack";
-        private string _packsFolder; // where to create packs
+        private string _packsFolder = FORCED_PACKS_FOLDER;
 
-        [MenuItem("Window/MashBox/Content Manager")]
+        [SerializeField] private ContentValidationRules _rules;
+
+        private readonly Dictionary<GameObject, List<ContentPackValidator.Issue>> _itemIssues
+            = new Dictionary<GameObject, List<ContentPackValidator.Issue>>();
+
+        private static bool _warnedNoRules;
+
+        private static GUIStyle _helpWrap, _errStyle, _warnStyle, _miniHeader, _dropZoneStyle;
+        private bool _rulesFoldout = true;
+        private Vector2 _scroll;
+
+        [MenuItem("MashBox/Content Manager")]
         public static void Open()
         {
-            GetWindow<ContentPackBuilderWindow>(true, "Content Manager");
+            GetWindow<ContentPackBuilderWindow>(true, "MG Content Manager");
         }
 
         private void OnEnable()
         {
             _settings = AddressableAssetSettingsDefaultObject.Settings;
-            _buildLocation = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
-            _packsFolder   = EditorPrefs.GetString(PREF_KEY_PACKS_FOLDER,   _packsFolder);
+            _buildLocation = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, DefaultBuildFolderRel);
+
+// If there isn't one saved yet, default to Assets/StreamingAssets/Addressables/Customization
+            if (string.IsNullOrWhiteSpace(_buildLocation))
+            {
+                _buildLocation = DefaultBuildFolderRel; // keep as project-relative for UX
+                // Don't save yet—only persist when the user builds or explicitly saves settings
+            }
+
+
+            _packsFolder = FORCED_PACKS_FOLDER;
+            EnsureFolderExists(_packsFolder);
+
+            AutoLoadRulesIfNeeded();
             RefreshPacks();
+            EditorApplication.projectChanged += OnProjectChanged;
+
+            RevalidateAllItems();
         }
 
         private void OnDisable()
         {
             EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation ?? string.Empty);
-            EditorPrefs.SetString(PREF_KEY_PACKS_FOLDER,   _packsFolder   ?? string.Empty);
+            EditorApplication.projectChanged -= OnProjectChanged;
         }
 
-        private void RefreshPacks()
+        private void OnProjectChanged()
         {
-            _packs.Clear();
-            _foldouts.Clear();
-            var prevSelected = new Dictionary<string, bool>(_selected);
-            _selected.Clear();
-
-            string[] guids = AssetDatabase.FindAssets("t:ContentPackDefinition");
-            foreach (var guid in guids)
+            RevalidateAllItems();
+            foreach (ContentPackDefinition pack in _packs)
             {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
-                var pack = AssetDatabase.LoadAssetAtPath<ContentPackDefinition>(path);
-                if (pack != null) _packs.Add(pack);
+                pack.RemoveMissingReferences();
             }
-            _packs = _packs.OrderBy(p => p.name).ToList();
 
+            Repaint();
+        }
+
+        private void RevalidateAllItems()
+        {
+            if (_packs == null) return;
             foreach (var p in _packs)
             {
-                var key = AssetDatabase.GetAssetPath(p);
-                _foldouts[key] = true;
-                _selected[key] = prevSelected.TryGetValue(key, out var was) ? was : true;
-                p.SyncToAddressables();
+                if (p == null || p._items == null) continue;
+                foreach (var go in p._items)
+                {
+                    if (!go) continue;
+                    _itemIssues[go] = ContentPackValidator.ValidateItem(go, _rules);
+                }
             }
+        }
+
+        private void AutoLoadRulesIfNeeded()
+        {
+            if (_rules != null) return;
+
+            var guids = AssetDatabase.FindAssets("t:ContentValidationRules");
+            if (guids != null && guids.Length > 0)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guids[0]);
+                _rules = AssetDatabase.LoadAssetAtPath<ContentValidationRules>(path);
+            }
+            else if (!_warnedNoRules)
+            {
+                _warnedNoRules = true;
+                Debug.LogWarning(
+                    "No ContentValidationRules asset found. Create one via Tools → MashBox → Create Prefilled Validation Rules, or Assets → Create → Content → Validation Rules.");
+            }
+        }
+
+        private const string DefaultBuildFolderRel = "Assets/StreamingAssets/Addressables/Customization";
+
+        private static string ToProjectAbsolutePath(string path)
+        {
+            // Accept absolute paths as-is
+            if (Path.IsPathRooted(path)) return path.Replace("\\", "/");
+
+            // Accept project-relative "Assets/..." paths
+            if (path.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase) ||
+                path.Equals("Assets", StringComparison.OrdinalIgnoreCase))
+            {
+                var projectRoot = Application.dataPath; // "<project>/Assets"
+                var abs = Path.Combine(Path.GetDirectoryName(projectRoot) ?? "",
+                    path.Replace("/", Path.DirectorySeparatorChar.ToString()));
+                return Path.GetFullPath(abs).Replace("\\", "/");
+            }
+
+            // Anything else must be absolute; return as-is (will fail validation)
+            return path.Replace("\\", "/");
         }
 
         private void OnGUI()
@@ -83,39 +155,65 @@ namespace ContentTools.Editor
                 GUILayout.Space(6);
                 DrawCreateSection();
                 GUILayout.Space(6);
+                DrawRulesOverview();
+                GUILayout.Space(6);
                 DrawPacksList();
                 GUILayout.Space(8);
                 DrawBuildRow();
             }
         }
 
-        private static GUIStyle _helpWrap;
         private void Header()
         {
-            if (_helpWrap == null)
+            if (_helpWrap == null) _helpWrap = new GUIStyle(EditorStyles.helpBox) { wordWrap = true, richText = true };
+            if (_errStyle == null)
             {
-                _helpWrap = new GUIStyle(EditorStyles.helpBox) { wordWrap = true, richText = true };
+                _errStyle = new GUIStyle(EditorStyles.boldLabel);
+                _errStyle.normal.textColor = Color.red;
+            }
+
+            if (_warnStyle == null)
+            {
+                _warnStyle = new GUIStyle(EditorStyles.label);
+                _warnStyle.normal.textColor = new Color(1f, 0.5f, 0f);
+            }
+
+            if (_miniHeader == null)
+                _miniHeader = new GUIStyle(EditorStyles.miniBoldLabel) { alignment = TextAnchor.MiddleLeft };
+            if (_dropZoneStyle == null)
+            {
+                _dropZoneStyle = new GUIStyle(EditorStyles.helpBox)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontStyle = FontStyle.Italic
+                };
+                _dropZoneStyle.normal.textColor = new Color(0.75f, 0.75f, 0.75f);
             }
 
             EditorGUILayout.LabelField("Content Manager", EditorStyles.boldLabel);
-            //EditorGUILayout.LabelField(
-            //    "This window displays your ContentPackDefinition assets and lets you manage their items.\n" +
-            //    "Tip: You can <b>drag & drop prefabs directly into each pack</b> below.", _helpWrap);
-
             GUILayout.Space(4);
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField("Build Output Folder", GUILayout.Width(140));
+                using (new EditorGUILayout.VerticalScope())
+                {
+                    EditorGUILayout.LabelField("Build Output Folder", GUILayout.Width(140));
+
+                    if (string.IsNullOrWhiteSpace(_buildLocation))
+                    {
+                        EditorGUILayout.HelpBox("Set a build output folder before building.", MessageType.Warning);
+                    }
+                }
+
                 EditorGUI.BeginChangeCheck();
                 _buildLocation = EditorGUILayout.TextField(_buildLocation);
                 if (EditorGUI.EndChangeCheck())
-                {
                     EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
-                }
+
                 if (GUILayout.Button("Browse", GUILayout.Width(80)))
                 {
-                    var chosen = EditorUtility.OpenFolderPanel("Choose build folder", string.IsNullOrEmpty(_buildLocation) ? Application.dataPath : _buildLocation, "");
+                    var chosen = EditorUtility.OpenFolderPanel("Choose build folder",
+                        string.IsNullOrEmpty(_buildLocation) ? Application.dataPath : _buildLocation, "");
                     if (!string.IsNullOrEmpty(chosen))
                     {
                         _buildLocation = chosen.Replace("\\", "/");
@@ -128,80 +226,132 @@ namespace ContentTools.Editor
         private void DrawCreateSection()
         {
             EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("Create / Locate Packs", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Create Packs", EditorStyles.boldLabel);
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField("Pack Definitions Data Folder", GUILayout.Width(180));
-                EditorGUI.BeginChangeCheck();
-                _packsFolder = EditorGUILayout.TextField(_packsFolder, GUILayout.MinWidth(250), GUILayout.ExpandWidth(true));
-                if (EditorGUI.EndChangeCheck())
-                    EditorPrefs.SetString(PREF_KEY_PACKS_FOLDER, _packsFolder);
-
-                if (GUILayout.Button("Browse", GUILayout.Width(80)))
+                if (!AssetDatabase.IsValidFolder(FORCED_PACKS_FOLDER))
                 {
-                    var start = string.IsNullOrEmpty(_packsFolder)
-                        ? Application.dataPath
-                        : Path.Combine(Application.dataPath, _packsFolder.TrimStart("Assets/".ToCharArray()));
-                    var folder = EditorUtility.OpenFolderPanel("Choose folder for packs", start, "");
-                    if (!string.IsNullOrEmpty(folder))
+                    if (GUILayout.Button("Create Folder", GUILayout.Width(110)))
                     {
-                        if (folder.StartsWith(Application.dataPath))
-                        {
-                            _packsFolder = "Assets" + folder.Substring(Application.dataPath.Length);
-                            _packsFolder = _packsFolder.Replace("\\", "/");
-                            EditorPrefs.SetString(PREF_KEY_PACKS_FOLDER, _packsFolder);
-                        }
-                        else
-                        {
-                            EditorUtility.DisplayDialog("Invalid Folder",
-                                "Please choose a folder inside the project Assets directory.", "OK");
-                        }
+                        EnsureFolderExists(FORCED_PACKS_FOLDER);
+                        AssetDatabase.Refresh();
                     }
                 }
             }
 
+            string sanitized = SanitizePackName(_newPackName);
+            if (sanitized != _newPackName) _newPackName = sanitized;
+
             using (new EditorGUILayout.HorizontalScope())
             {
                 EditorGUILayout.LabelField("New Pack Name", GUILayout.Width(110));
-                _newPackName = EditorGUILayout.TextField(_newPackName, GUILayout.MinWidth(250), GUILayout.ExpandWidth(true));
-                GUI.enabled = !string.IsNullOrEmpty(_packsFolder) && !string.IsNullOrWhiteSpace(_newPackName);
+                _newPackName =
+                    EditorGUILayout.TextField(_newPackName, GUILayout.MinWidth(250), GUILayout.ExpandWidth(true));
+
+                GUI.enabled = !string.IsNullOrWhiteSpace(_newPackName);
                 if (GUILayout.Button("Create Pack", GUILayout.Width(110)))
                 {
-                    CreatePack();
+                    string safe = SanitizePackName(_newPackName);
+                    if (string.IsNullOrWhiteSpace(safe))
+                    {
+                        EditorUtility.DisplayDialog("Invalid Name", "Enter a valid pack name.", "OK");
+                    }
+                    else if (PackNameExists(safe, out var existingPath))
+                    {
+                        EditorUtility.DisplayDialog("Duplicate Name",
+                            $"A ContentPackDefinition named '{safe}' already exists:\n{existingPath}",
+                            "OK");
+                    }
+                    else if (AddressablesGroupExists(safe))
+                    {
+                        EditorUtility.DisplayDialog("Duplicate Group",
+                            $"An Addressables Group named '{safe}' already exists.",
+                            "OK");
+                    }
+                    else
+                    {
+                        CreatePackWithName(safe);
+                    }
                 }
+
                 GUI.enabled = true;
             }
         }
 
-        private void CreatePack()
+        private void DrawRulesOverview()
         {
-            if (string.IsNullOrEmpty(_packsFolder))
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                EditorUtility.DisplayDialog("Pick a folder", "Please choose a folder for your packs first.", "OK");
-                return;
+                _rulesFoldout = EditorGUILayout.Foldout(_rulesFoldout, "Validation Rules (read-only)", true);
+                if (!_rulesFoldout) return;
+
+                if (_rules == null)
+                {
+                    EditorGUILayout.HelpBox(
+                        "No ContentValidationRules asset found. Create one via Tools → MashBox → Create Prefilled Validation Rules, or Assets → Create → Content → Validation Rules.",
+                        MessageType.Warning);
+                    return;
+                }
+
+                EditorGUILayout.LabelField("SuperTypes", _miniHeader);
+                if (_rules.SuperTypes != null && _rules.SuperTypes.Length > 0)
+                    EditorGUILayout.LabelField(string.Join(", ", _rules.SuperTypes));
+                else
+                    EditorGUILayout.LabelField("<none>");
+
+                EditorGUILayout.Space(3);
+
+                EditorGUILayout.LabelField("Allowed Pairs (SuperType → Types)", _miniHeader);
+                if (_rules.AllowedPairs != null && _rules.AllowedPairs.Count > 0)
+                {
+                    foreach (var pair in _rules.AllowedPairs)
+                    {
+                        if (pair == null) continue;
+                        var types = (pair.Types != null && pair.Types.Length > 0)
+                            ? string.Join(", ", pair.Types)
+                            : "<none>";
+                        EditorGUILayout.LabelField($"• {pair.SuperType} → {types}");
+                    }
+                }
+                else
+                {
+                    EditorGUILayout.LabelField("<none>");
+                }
+
+                EditorGUILayout.Space(3);
+
+                EditorGUILayout.LabelField("Colors", _miniHeader);
+                if (_rules.Colors != null && _rules.Colors.Length > 0)
+                    EditorGUILayout.LabelField(string.Join(", ", _rules.Colors));
+                else
+                    EditorGUILayout.LabelField("<none>");
+
+                EditorGUILayout.Space(3);
+
+                EditorGUILayout.LabelField("Anchor Rules", _miniHeader);
+                if (_rules.AnchorRules != null && _rules.AnchorRules.Count > 0)
+                {
+                    foreach (var r in _rules.AnchorRules)
+                    {
+                        if (r == null) continue;
+                        string scope =
+                            $"{(string.IsNullOrEmpty(r.AppliesToSuperType) ? "*" : r.AppliesToSuperType)}/" +
+                            $"{(string.IsNullOrEmpty(r.AppliesToType) ? "*" : r.AppliesToType)}/" +
+                            $"{(string.IsNullOrEmpty(r.AppliesToBrand) ? "*" : r.AppliesToBrand)}";
+                        var req = (r.RequiredChildren != null && r.RequiredChildren.Length > 0)
+                            ? string.Join(", ", r.RequiredChildren)
+                            : "<none>";
+                        EditorGUILayout.LabelField($"• [{scope}] → {req}");
+                    }
+                }
+                else
+                {
+                    EditorGUILayout.LabelField("<none>");
+                }
             }
-
-            if (!AssetDatabase.IsValidFolder(_packsFolder))
-            {
-                EditorUtility.DisplayDialog("Folder missing",
-                    $"'{_packsFolder}' isn't a valid folder inside Assets.", "OK");
-                return;
-            }
-
-            var assetPath = AssetDatabase.GenerateUniqueAssetPath(Path.Combine(_packsFolder, _newPackName + ".asset").Replace("\\", "/"));
-            var instance = CreateInstance<ContentPackDefinition>();
-            AssetDatabase.CreateAsset(instance, assetPath);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-
-            EditorGUIUtility.PingObject(instance);
-            Selection.activeObject = instance;
-
-            RefreshPacks();
         }
 
-        private Vector2 _scroll;
         private void DrawPacksList()
         {
             using (var scroll = new EditorGUILayout.ScrollViewScope(_scroll))
@@ -210,14 +360,17 @@ namespace ContentTools.Editor
 
                 if (_packs.Count == 0)
                 {
-                    EditorGUILayout.HelpBox("No ContentPackDefinition assets found. Create one above.", MessageType.Info);
+
                     return;
                 }
 
-                foreach (var p in _packs)
+                for (int j = 0; j < _packs.Count; j++)
                 {
+                    var p = _packs[j];
                     if (p == null) continue;
                     var key = AssetDatabase.GetAssetPath(p);
+                    if (string.IsNullOrEmpty(key)) continue;
+
                     if (!_foldouts.ContainsKey(key)) _foldouts[key] = true;
                     if (!_selected.ContainsKey(key)) _selected[key] = true;
 
@@ -228,125 +381,154 @@ namespace ContentTools.Editor
                             _selected[key] = EditorGUILayout.Toggle(_selected[key], GUILayout.Width(18));
                             _foldouts[key] = EditorGUILayout.Foldout(_foldouts[key], p.name, true);
                             GUILayout.FlexibleSpace();
-                            if (GUILayout.Button("Ping", GUILayout.Width(70)))
-                            {
-                                //Selection.activeObject = p;
-                                EditorGUIUtility.PingObject(p);
-                            }
+
+                            if (GUILayout.Button("Generate Icons", GUILayout.Width(120)))
+                                GenerateIconsForPack(p);
+
                             if (GUILayout.Button("Delete", GUILayout.Width(70)))
-                            {
                                 DeletePack(p);
-                                break;
+                        }
+
+
+                        if (_foldouts.ContainsKey(key))
+                            if (_foldouts[key])
+                            {
+
+                                EditorGUI.indentLevel++;
+                                // Items list with inline validation
+                                if (p._items != null && p._items.Count > 0)
+                                {
+                                    // Use for-loop so we can safely remove by index
+                                    for (int i = 0; i < p._items.Count; i++)
+                                    {
+                                        var go = p._items[i];
+
+                                        using (new EditorGUILayout.HorizontalScope())
+                                        {
+
+                                            // Draw issues under the row (skip if item was deleted above)
+                                            if (i >= 0 && i < p._items.Count)
+                                                DrawItemIssuesUI(p._items[i], true);
+
+                                            // Object field (read-only presentation but still shows ping/select, keep editable if you prefer)
+                                            EditorGUI.BeginChangeCheck();
+                                            var next = (GameObject)EditorGUILayout.ObjectField(go, typeof(GameObject),
+                                                false);
+
+                                            // Spacer
+                                            //GUILayout.FlexibleSpace();
+
+                                            // Remove button
+                                            if (GUILayout.Button("X", GUILayout.Width(26)))
+                                            {
+                                                Undo.RecordObject(p, "Remove Item From Pack");
+
+                                                // Remove from pack
+                                                p._items.RemoveAt(i);
+
+                                                // Keep the validation map tidy
+                                                if (go != null && _itemIssues.ContainsKey(go))
+                                                    _itemIssues.Remove(go);
+
+                                                EditorUtility.SetDirty(p);
+                                                AssetDatabase.SaveAssets();
+
+                                                // Adjust index since we removed current item
+                                                i--;
+
+
+                                                p.SyncToAddressables();
+                                                p.SyncToAddressables();
+                                                // Exit GUI so Repaint doesn't clash with changed layout
+                                                Repaint();
+                                                GUIUtility.ExitGUI();
+                                            }
+                                            else if (EditorGUI.EndChangeCheck())
+                                            {
+                                                // If user changed the reference in-place, update and revalidate
+                                                Undo.RecordObject(p, "Change Pack Item");
+                                                p._items[i] = next;
+
+                                                if (next != null)
+                                                    _itemIssues[next] = ContentPackValidator.ValidateItem(next, _rules);
+
+                                                if (go != null && go != next && _itemIssues.ContainsKey(go))
+                                                    _itemIssues.Remove(go);
+
+                                                EditorUtility.SetDirty(p);
+                                                AssetDatabase.SaveAssets();
+                                                Repaint();
+                                            }
+
+                                        }
+
+                                        // Draw issues under the row (skip if item was deleted above)
+                                        if (i >= 0 && i < p._items.Count)
+                                            DrawItemIssuesUI(p._items[i], false);
+                                    }
+                                }
+                                else
+                                {
+                                    EditorGUILayout.LabelField("<no items>", EditorStyles.miniLabel);
+                                }
+
+
+                                // --- Drag & Drop zone always visible for convenience ---
+                                var dropRect = GUILayoutUtility.GetRect(0, 20, GUILayout.ExpandWidth(true));
+                                GUI.Box(dropRect, "Drag prefabs here", _dropZoneStyle);
+                                HandleDragAndDropForPack(p, dropRect);
+
+                                EditorGUI.indentLevel--;
                             }
-                        }
-
-                        if(_foldouts.ContainsKey(key))
-                        if (_foldouts[key])
-                        {
-                            DrawPackItemsList(p);
-                            DrawPackDropZone(p);
-                        }
                     }
                 }
             }
         }
 
-        private void DrawPackItemsList(ContentPackDefinition p)
-        {
-            EditorGUI.indentLevel++;
-            if (p._items == null) p._items = new List<GameObject>();
-
-            for (int i = 0; i < p._items.Count; i++)
-            {
-                var go = p._items[i];
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    p._items[i] = (GameObject)EditorGUILayout.ObjectField(go, typeof(GameObject), false);
-                    if (GUILayout.Button("-", GUILayout.Width(22)))
-                    {
-                        Undo.RecordObject(p, "Remove Item from Pack");
-                        p._items.RemoveAt(i);
-                        EditorUtility.SetDirty(p);
-                        AssetDatabase.SaveAssets();
-                        GUIUtility.ExitGUI();
-                    }
-                }
-            }
-            EditorGUI.indentLevel--;
-        }
-
-        private void DrawPackDropZone(ContentPackDefinition p)
-        {
-            GUILayout.Space(6);
-            var rect = GUILayoutUtility.GetRect(0, 48, GUILayout.ExpandWidth(true));
-            GUI.Box(rect, "Drag prefabs here to add to this pack", EditorStyles.helpBox);
-
-            var evt = Event.current;
-            if (!rect.Contains(evt.mousePosition))
-                return;
-
-            if (evt.type == EventType.DragUpdated || evt.type == EventType.DragPerform)
-            {
-                bool hasValid = DragAndDrop.objectReferences.Any(o =>
-                {
-                    var go = o as GameObject;
-                    if (!go) return false;
-                    var path = AssetDatabase.GetAssetPath(go);
-                    return !string.IsNullOrEmpty(path);
-                });
-
-                DragAndDrop.visualMode = hasValid ? DragAndDropVisualMode.Copy : DragAndDropVisualMode.Rejected;
-
-                if (evt.type == EventType.DragPerform && hasValid)
-                {
-                    DragAndDrop.AcceptDrag();
-
-                    Undo.RecordObject(p, "Add prefabs to Content Pack");
-
-                    foreach (var obj in DragAndDrop.objectReferences)
-                    {
-                        var go = obj as GameObject;
-                        if (!go) continue;
-                        var path = AssetDatabase.GetAssetPath(go);
-                        if (string.IsNullOrEmpty(path)) continue; // not an asset
-                        if (!p._items.Contains(go))
-                            p._items.Add(go);
-                    }
-
-                    EditorUtility.SetDirty(p);
-                    AssetDatabase.SaveAssets();
-                    evt.Use();
-                }
-                else
-                {
-                    evt.Use();
-                }
-            }
-        }
-
-        // ===== Build buttons row (bottom) =====
         private void DrawBuildRow()
         {
             using (new EditorGUILayout.HorizontalScope())
             {
-                GUILayout.FlexibleSpace();
-
-                bool anySelected = _selected.Values.Any(v => v);
-                GUI.enabled = anySelected;
-                if (GUILayout.Button("Build Selected", GUILayout.Width(140)))
+                if (GUILayout.Button("Build Selected", GUILayout.Width(120)))
                 {
-                    var list = _packs.Where(p =>
+                    var toBuild = _packs.Where(p =>
+                        p != null && _selected.TryGetValue(AssetDatabase.GetAssetPath(p), out var sel) && sel).ToList();
+                    if (toBuild.Count == 0)
                     {
-                        var key = AssetDatabase.GetAssetPath(p);
-                        return _selected.TryGetValue(key, out var on) && on;
-                    }).ToList();
-                    BuildPacks(list, cleanMissing:true);
-                }
-                GUI.enabled = true;
+                        EditorUtility.DisplayDialog("Nothing Selected", "Select one or more packs to build.", "OK");
+                        return;
+                    }
 
-                if (GUILayout.Button("Build All", GUILayout.Width(110)))
+                    foreach (var pack in toBuild)
+                    {
+                        var issues = ValidatePack(pack, _rules);
+                        if (issues.Any(i => i.severity == ContentPackValidator.Severity.Error))
+                        {
+                            ContentPackValidator.LogReport(pack, issues, "Build blocked");
+                            EditorUtility.DisplayDialog("Build blocked",
+                                $"'{pack.name}' has validation errors. See Console.", "OK");
+                            return;
+                        }
+                    }
+
+                    BuildPacks(toBuild, cleanMissing: true);
+                }
+
+                if (GUILayout.Button("Build All", GUILayout.Width(90)))
                 {
-                    BuildPacks(_packs.ToList(), cleanMissing:true);
+                    foreach (var pack in _packs)
+                    {
+                        var issues = ValidatePack(pack, _rules);
+                        if (issues.Any(i => i.severity == ContentPackValidator.Severity.Error))
+                        {
+                            ContentPackValidator.LogReport(pack, issues, "Build blocked");
+                            EditorUtility.DisplayDialog("Build blocked",
+                                $"'{pack.name}' has validation errors. See Console.", "OK");
+                            return;
+                        }
+                    }
+
+                    BuildPacks(_packs.ToList(), cleanMissing: true);
                 }
 
                 if (GUILayout.Button("Refresh", GUILayout.Width(90)))
@@ -356,6 +538,45 @@ namespace ContentTools.Editor
             }
         }
 
+        private bool EnsureValidBuildFolder(out string error)
+        {
+            error = null;
+
+            if (string.IsNullOrWhiteSpace(_buildLocation))
+            {
+                error = "No build output folder set.";
+                return false;
+            }
+
+            // Normalize slashes
+            _buildLocation = _buildLocation.Replace("\\", "/");
+
+            // Must be an absolute path
+            if (!Path.IsPathRooted(_buildLocation))
+            {
+                error = $"Build output folder must be an absolute path:\n{_buildLocation}";
+                return false;
+            }
+
+            try
+            {
+                if (!Directory.Exists(_buildLocation))
+                    Directory.CreateDirectory(_buildLocation);
+
+                // Verify write access with a quick temp file probe
+                var probe = Path.Combine(_buildLocation, ".write_probe.tmp");
+                File.WriteAllText(probe, "ok");
+                File.Delete(probe);
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                error = $"Build output folder is not writable:\n{_buildLocation}\n\n{ex.Message}";
+                return false;
+            }
+        }
+
+
         private void BuildPacks(List<ContentPackDefinition> list, bool cleanMissing)
         {
             if (_settings == null)
@@ -363,22 +584,28 @@ namespace ContentTools.Editor
                 Debug.LogError("Addressables settings not found.");
                 return;
             }
+
             if (list == null || list.Count == 0)
             {
                 Debug.LogWarning("No packs selected to build.");
                 return;
             }
-            
+
+
+            string buildErr;
+            if (!EnsureValidBuildFolder(out buildErr))
+            {
+                EditorUtility.DisplayDialog("Invalid Build Output Folder", buildErr, "OK");
+                return;
+            }
+
             RefreshPacks();
 
-            // Clean missing items before build (quietly)
             if (cleanMissing)
             {
                 foreach (var p in list)
                 {
-                    if (p == null) continue;
-                    if (p._items == null) continue;
-
+                    if (p == null || p._items == null) continue;
                     int before = p._items.Count;
                     if (before == 0) continue;
 
@@ -387,14 +614,16 @@ namespace ContentTools.Editor
                     if (p._items.Count != before)
                     {
                         EditorUtility.SetDirty(p);
+                        p.SyncToAddressables();
                     }
+
                 }
+
                 AssetDatabase.SaveAssets();
             }
 
             var opts = new AddressablesPackBuilder.BuildOptions
             {
-                // Hidden from UI: use active profile
                 profileId = _settings.activeProfileId,
                 rebuildPlayerContent = true,
                 enableRemoteCatalog = true,
@@ -403,7 +632,8 @@ namespace ContentTools.Editor
                 manifestFileName = null,
                 setPlayerVersionOverride = true,
 
-                sessionRemoteBuildRootOverride = string.IsNullOrEmpty(_buildLocation) ? null : _buildLocation.Replace("\\", "/"),
+                sessionRemoteBuildRootOverride =
+                    string.IsNullOrEmpty(_buildLocation) ? null : _buildLocation.Replace("\\", "/"),
                 sessionRemoteLoadRootOverride = "{UnityEngine.AddressableAssets.Addressables.RuntimePath}",
             };
 
@@ -411,9 +641,61 @@ namespace ContentTools.Editor
             foreach (var p in list)
             {
                 if (p == null) continue;
+
+                // Capture 2K icons before building
+                try
+                {
+                    var items = (p._items ?? new List<GameObject>()).Where(x => x != null);
+                    ContentIconCaptureUtility.CaptureIconsForPrefabs(
+                        items,
+                        renderSize: 2048,
+                        outputSize: 2048,
+                        imageType: ContentIconCaptureUtility.ImageType.PNG
+                    );
+                    Debug.Log($"[ContentPackBuilder] Captured 2K icons for pack '{p.name}'.");
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError($"[ContentPackBuilder] Icon capture failed for '{p?.name}': {ex.Message}");
+                }
+                
+                try
+                {
+                    if (p._icons == null) p._icons = new List<Texture2D>();
+                    bool changedIcons = false;
+
+                    foreach (var go in (p._items ?? new List<GameObject>()).Where(x => x != null))
+                    {
+                        string folder;
+                        var iconPath = ComputeIconPathForPrefab(go, out folder);
+                        if (string.IsNullOrEmpty(iconPath)) continue;
+
+                        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(iconPath);
+                        if (tex != null && !p._icons.Contains(tex))
+                        {
+                            p._icons.Add(tex);
+                            changedIcons = true;
+                        }
+                    }
+
+                    if (changedIcons)
+                    {
+                        EditorUtility.SetDirty(p);
+                        AssetDatabase.SaveAssets();
+                    }
+
+                    // ensure the _Icons group is updated before the addressables build for this pack
+                    p.SyncToAddressables();
+                }
+                catch (System.Exception exCollect)
+                {
+                    Debug.LogError($"[ContentPackBuilder] Icon registration failed for '{p?.name}': {exCollect.Message}");
+                }
+
                 AddressablesPackBuilder.BuildPack(p, opts);
                 built++;
             }
+
             Debug.Log(built > 0 ? $"Built {built} content pack(s)." : "Nothing to build.");
         }
 
@@ -424,18 +706,16 @@ namespace ContentTools.Editor
             var packPath = AssetDatabase.GetAssetPath(p);
             if (string.IsNullOrEmpty(packPath)) return;
 
-            // Try to find an Addressables group with the same name
             AddressableAssetGroup matchingGroup = null;
             if (_settings != null)
             {
                 matchingGroup = _settings.groups
                     .FirstOrDefault(g => g != null
                                          && g.name == p.name
-                                         && !g.ReadOnly        // don't delete built-in / protected groups
+                                         && !g.ReadOnly
                                          && g != _settings.DefaultGroup);
             }
 
-            // Build a single confirmation message
             string msg = matchingGroup != null
                 ? $"Delete content pack '{p.name}' and its Addressables group with the same name?\nThis cannot be undone."
                 : $"Delete content pack '{p.name}' from the project?\n(This pack has no matching writable Addressables group.)\nThis cannot be undone.";
@@ -443,22 +723,345 @@ namespace ContentTools.Editor
             bool confirm = EditorUtility.DisplayDialog("Delete Content Pack?", msg, "Delete", "Cancel");
             if (!confirm) return;
 
-            // Deselect to avoid Unity selection warnings
             if (Selection.activeObject == p) Selection.activeObject = null;
 
-            // Delete the pack asset
             AssetDatabase.DeleteAsset(packPath);
 
-            // Delete the Addressables group (if we found one)
             if (matchingGroup != null)
-            {
-                // This removes it from Settings and deletes the group asset on disk.
                 _settings.RemoveGroup(matchingGroup);
-            }
+
+            CleanAddressablesGroups(_settings);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             RefreshPacks();
+        }
+
+        // ---------- Drag & Drop support ----------
+        private void HandleDragAndDropForPack(ContentPackDefinition pack, Rect dropRect)
+        {
+            var e = Event.current;
+            if (!dropRect.Contains(e.mousePosition)) return;
+
+            // Accept GameObjects / prefab assets
+            bool HasValidObject(Object o)
+            {
+                if (o is GameObject go)
+                {
+                    // If it's a scene object, try to resolve to prefab asset
+                    var path = AssetDatabase.GetAssetPath(go);
+                    if (!string.IsNullOrEmpty(path) && path.EndsWith(".prefab"))
+                        return true;
+
+                    // Try linked prefab
+                    var prefab = PrefabUtility.GetCorrespondingObjectFromSource(go);
+                    if (prefab != null)
+                    {
+                        var p = AssetDatabase.GetAssetPath(prefab);
+                        return !string.IsNullOrEmpty(p) && p.EndsWith(".prefab");
+                    }
+                }
+
+                return false;
+            }
+
+            if (e.type == EventType.DragUpdated || e.type == EventType.DragPerform)
+            {
+                var anyValid = DragAndDrop.objectReferences.Any(HasValidObject);
+                DragAndDrop.visualMode = anyValid ? DragAndDropVisualMode.Copy : DragAndDropVisualMode.Rejected;
+
+                if (e.type == EventType.DragPerform && anyValid)
+                {
+                    DragAndDrop.AcceptDrag();
+
+                    Undo.RecordObject(pack, "Add Items To Pack");
+                    if (pack._items == null) pack._items = new List<GameObject>();
+
+                    foreach (var obj in DragAndDrop.objectReferences)
+                    {
+                        if (!(obj is GameObject go)) continue;
+
+                        // Prefer prefab asset version
+                        GameObject assetGo = null;
+                        var assetPath = AssetDatabase.GetAssetPath(go);
+                        if (!string.IsNullOrEmpty(assetPath) && assetPath.EndsWith(".prefab"))
+                        {
+                            assetGo = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+                        }
+                        else
+                        {
+                            var fromSource = PrefabUtility.GetCorrespondingObjectFromSource(go);
+                            if (fromSource != null)
+                            {
+                                var srcPath = AssetDatabase.GetAssetPath(fromSource);
+                                if (!string.IsNullOrEmpty(srcPath) && srcPath.EndsWith(".prefab"))
+                                    assetGo = AssetDatabase.LoadAssetAtPath<GameObject>(srcPath);
+                            }
+                        }
+
+                        if (assetGo == null) continue;
+                        if (!pack._items.Contains(assetGo))
+                            pack._items.Add(assetGo);
+
+                        // validate on add
+                        _itemIssues[assetGo] = ContentPackValidator.ValidateItem(assetGo, _rules);
+
+                        pack.SyncToAddressables();
+                    }
+
+                    EditorUtility.SetDirty(pack);
+                    AssetDatabase.SaveAssets();
+                    Repaint();
+                }
+
+                e.Use();
+            }
+        }
+
+        // ---------- Validation helpers (live inline UI) ----------
+        private void ValidateItemLive(GameObject go)
+        {
+            if (!go) return;
+            var issues = ContentPackValidator.ValidateItem(go, _rules);
+            _itemIssues[go] = issues;
+            Repaint();
+        }
+
+        private void DrawItemIssuesUI(GameObject go, bool onlyValid)
+        {
+            if (!go) return;
+            if (!_itemIssues.TryGetValue(go, out var issues) || issues == null) return;
+
+            int errorCount = issues.Count(i => i.severity == ContentPackValidator.Severity.Error);
+            int warnCount = issues.Count(i => i.severity == ContentPackValidator.Severity.Warning);
+
+            if (errorCount == 0 && warnCount == 0 && onlyValid)
+            {
+                GUILayout.Label("✓ Valid", EditorStyles.miniBoldLabel, GUILayout.Width(60));
+                return;
+            }
+            else if (onlyValid)
+            {
+                return;
+            }
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (errorCount == 0 && warnCount == 0)
+                {
+                    // GUILayout.Label("✓ Valid", EditorStyles.miniBoldLabel, GUILayout.Width(60));
+                }
+                else if (!onlyValid)
+                {
+                    if (errorCount > 0)
+                        GUILayout.Label($"Errors: {errorCount}", _errStyle, GUILayout.Width(120));
+                    if (warnCount > 0)
+                        GUILayout.Label($"Warnings: {warnCount}", _warnStyle, GUILayout.Width(140));
+                }
+
+                GUILayout.FlexibleSpace();
+            }
+
+            if (errorCount > 0 || warnCount > 0)
+            {
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                {
+                    foreach (var i in issues)
+                    {
+                        var style = i.severity == ContentPackValidator.Severity.Error ? _errStyle : _warnStyle;
+                        EditorGUILayout.LabelField("• " + i.message, style);
+                    }
+                }
+            }
+        }
+
+        // ---------- Pack list + Addressables helpers ----------
+        private void CreatePackWithName(string safeName)
+        {
+            EnsureFolderExists(FORCED_PACKS_FOLDER);
+
+            string assetPath = $"{FORCED_PACKS_FOLDER}/{safeName}.asset";
+            var asset = ScriptableObject.CreateInstance<ContentPackDefinition>();
+            AssetDatabase.CreateAsset(asset, assetPath);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+
+            asset.SyncToAddressables();
+            //EditorGUIUtility.PingObject(asset);
+            RefreshPacks();
+        }
+
+        private void RefreshPacks()
+        {
+            _packs.Clear();
+            _foldouts.Clear();
+            _selected.Clear();
+
+            var guids = AssetDatabase.FindAssets("t:ContentPackDefinition", new[] { FORCED_PACKS_FOLDER });
+            foreach (var guid in guids)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var pack = AssetDatabase.LoadAssetAtPath<ContentPackDefinition>(path);
+                if (pack != null) _packs.Add(pack);
+            }
+
+
+            foreach (ContentPackDefinition pack in _packs)
+            {
+                pack.RemoveMissingReferences();
+            }
+
+            Repaint();
+        }
+
+        private static void EnsureFolderExists(string folder)
+        {
+            var parts = folder.Split('/');
+            string cur = "";
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (i == 0 && parts[i] == "Assets")
+                {
+                    cur = "Assets";
+                    continue;
+                }
+
+                var parent = string.IsNullOrEmpty(cur) ? "Assets" : cur;
+                var name = parts[i];
+                if (!AssetDatabase.IsValidFolder(Path.Combine(parent, name)))
+                    AssetDatabase.CreateFolder(parent, name);
+                cur = Path.Combine(parent, name).Replace("\\", "/");
+            }
+        }
+
+        private static string SanitizePackName(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return string.Empty;
+            var invalid = Path.GetInvalidFileNameChars();
+            var chars = raw.Trim().Select(c => invalid.Contains(c) ? '_' : c).ToArray();
+            return new string(chars);
+        }
+
+        private static bool PackNameExists(string packName, out string path)
+        {
+            path = null;
+            var guids = AssetDatabase.FindAssets($"t:ContentPackDefinition {packName}");
+            foreach (var guid in guids)
+            {
+                var p = AssetDatabase.GUIDToAssetPath(guid);
+                var name = Path.GetFileNameWithoutExtension(p);
+                if (string.Equals(name, packName, System.StringComparison.OrdinalIgnoreCase))
+                {
+                    path = p;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool AddressablesGroupExists(string groupName)
+        {
+            var s = AddressableAssetSettingsDefaultObject.Settings;
+            if (s == null) return false;
+            return s.groups.Any(g => g != null && g.name == groupName);
+        }
+
+        private static void CleanAddressablesGroups(AddressableAssetSettings s)
+        {
+            if (s == null) return;
+            var empties = s.groups.Where(g =>
+                    g != null && g != s.DefaultGroup && !g.ReadOnly && (g.entries == null || g.entries.Count == 0))
+                .ToList();
+            foreach (var g in empties)
+                s.RemoveGroup(g);
+        }
+
+        private static List<ContentPackValidator.Issue> ValidatePack(ContentPackDefinition pack,
+            ContentValidationRules rules)
+        {
+            var all = new List<ContentPackValidator.Issue>();
+            if (pack == null) return all;
+            if (pack._items == null) return all;
+
+            foreach (var go in pack._items)
+            {
+                if (!go) continue;
+                var issues = ContentPackValidator.ValidateItem(go, rules);
+                all.AddRange(issues);
+            }
+
+            return all;
+        }
+
+        private static string ComputeIconPathForPrefab(GameObject prefab, out string folder)
+        {
+            folder = null;
+            if (!prefab) return null;
+            var prefabPath = AssetDatabase.GetAssetPath(prefab);
+            if (string.IsNullOrEmpty(prefabPath)) return null;
+
+            // Mirror "…/Prefabs/Foo.prefab" → "…/Icons/Foo_Icon.png"
+            var dir = Path.GetDirectoryName(prefabPath)?.Replace("\\", "/") ?? "Assets";
+            folder = dir.Replace("/Prefabs", "/Icons");
+            var fileNameNoExt = Path.GetFileNameWithoutExtension(prefabPath) + "_Icon";
+            return Path.Combine(folder, fileNameNoExt + ".png").Replace("\\", "/");
+        }
+
+        private void GenerateIconsForPack(ContentPackDefinition pack)
+        {
+            if (pack == null) return;
+
+            var items = (pack._items ?? new List<GameObject>()).Where(x => x != null).ToList();
+            if (items.Count == 0)
+            {
+                Debug.LogWarning($"[ContentPackBuilder] No items in '{pack.name}' to capture icons for.");
+                return;
+            }
+
+            // 1) Capture icons (same utility used by build)
+            try
+            {
+                Content_Icon_Capture.Editor.ContentIconCaptureUtility.CaptureIconsForPrefabs(
+                    items,
+                    renderSize: 2048,
+                    outputSize: 2048,
+                    imageType: Content_Icon_Capture.Editor.ContentIconCaptureUtility.ImageType.PNG
+                );
+                Debug.Log($"[ContentPackBuilder] Generated icons for pack '{pack.name}'.");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[ContentPackBuilder] Icon capture failed for '{pack?.name}': {ex.Message}");
+                return;
+            }
+
+            // 2) Load the generated textures and record them on the pack
+            bool changed = false;
+            if (pack._icons == null) pack._icons = new List<Texture2D>();
+
+            foreach (var prefab in items)
+            {
+                string folder;
+                var iconPath = ComputeIconPathForPrefab(prefab, out folder);
+                if (string.IsNullOrEmpty(iconPath)) continue;
+
+                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(iconPath);
+                if (tex != null && !pack._icons.Contains(tex))
+                {
+                    pack._icons.Add(tex);
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                EditorUtility.SetDirty(pack);
+                AssetDatabase.SaveAssets();
+            }
+
+            // 3) Push the icons into the "{PackName}_Icons" addressable group
+            pack.SyncToAddressables();
         }
 
     }
