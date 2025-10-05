@@ -89,6 +89,12 @@ namespace ContentTools
             if (_syncScheduled) return;
             _syncScheduled = true;
 
+            foreach (var go in _items)
+            {
+                go.transform.localPosition = Vector3.zero;
+                go.transform.localRotation = Quaternion.identity;
+            }
+
             UnityEditor.EditorApplication.delayCall += () =>
             {
                 _syncScheduled = false;
@@ -234,6 +240,9 @@ namespace ContentTools
                 // Add/Move each prefab as an Addressable entry in this group
                 foreach (var go in _items)
                 {
+                    go.transform.localPosition = Vector3.zero;
+                    go.transform.localRotation = Quaternion.identity;
+                    
                     if (go == null) continue;
                     var path = UnityEditor.AssetDatabase.GetAssetPath(go);
                     if (string.IsNullOrEmpty(path)) continue;
