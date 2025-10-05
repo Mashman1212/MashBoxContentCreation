@@ -2,6 +2,7 @@
 using System;
 using System.Linq;
 using System.Collections.Generic;
+using System.Diagnostics;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
@@ -10,6 +11,7 @@ using System.IO;
 
 // pull in the icon capture utility
 using Content_Icon_Capture.Editor;
+using Debug = UnityEngine.Debug;
 using Object = UnityEngine.Object;
 
 namespace ContentTools.Editor
@@ -169,7 +171,7 @@ namespace ContentTools.Editor
             if (_errStyle == null)
             {
                 _errStyle = new GUIStyle(EditorStyles.boldLabel);
-                _errStyle.normal.textColor = Color.red;
+                _errStyle.normal.textColor = new Color(.9f, 0.25f, .25f);
             }
 
             if (_warnStyle == null)
@@ -219,6 +221,12 @@ namespace ContentTools.Editor
                         _buildLocation = chosen.Replace("\\", "/");
                         EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
                     }
+                }
+                
+                if(!string.IsNullOrEmpty(_buildLocation))
+                if (GUILayout.Button("Open", GUILayout.Width(60)))
+                {
+                    OpenBuildOutputFolder(_buildLocation);
                 }
             }
         }
@@ -278,7 +286,36 @@ namespace ContentTools.Editor
                 GUI.enabled = true;
             }
         }
+        void EnsureWrapStyle()
+        {
+            if (_wrapLabel != null) return;
+            _wrapLabel = new GUIStyle(EditorStyles.label)
+            {
+                wordWrap = true,
+                richText = false
+            };
+        }
+        /// Draw a wrapped line that adapts to the current window width.
+        /// leftPadding lets you indent bullets under the header nicely.
+        void DrawWrappedLine(string text, float leftPadding = 16f, float rightPadding = 8f)
+        {
+            EnsureWrapStyle();
+            if (string.IsNullOrEmpty(text)) text = "";
 
+            // How much width we actually have inside the current view/helpbox
+            float full = EditorGUIUtility.currentViewWidth;
+            // Unity adds margins; a small cushion prevents accidental clipping
+            float contentWidth = Mathf.Max(80f, full - leftPadding - rightPadding - 20f);
+
+            var gc = new GUIContent(text);
+            float h = _wrapLabel.CalcHeight(gc, contentWidth);
+
+            // Reserve a rect and draw
+            var r = GUILayoutUtility.GetRect(contentWidth, h, _wrapLabel, GUILayout.ExpandWidth(true));
+            r.x += leftPadding;
+            r.width = contentWidth;
+            EditorGUI.LabelField(r, gc, _wrapLabel);
+        }
         private void DrawRulesOverview()
         {
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
@@ -311,12 +348,15 @@ namespace ContentTools.Editor
                         var types = (pair.Types != null && pair.Types.Length > 0)
                             ? string.Join(", ", pair.Types)
                             : "<none>";
-                        EditorGUILayout.LabelField($"• {pair.SuperType} → {types}");
+
+                        // was: EditorGUILayout.LabelField($"• {pair.SuperType} → {types}");
+                        DrawWrappedLine($"• {pair.SuperType} → {types}", leftPadding: 16f);
                     }
                 }
                 else
                 {
-                    EditorGUILayout.LabelField("<none>");
+                    // was: EditorGUILayout.LabelField("<none>");
+                    DrawWrappedLine("<none>", leftPadding: 16f);
                 }
 
                 EditorGUILayout.Space(3);
@@ -351,6 +391,9 @@ namespace ContentTools.Editor
                 }
             }
         }
+
+
+
 
         private void DrawPacksList()
         {
@@ -412,9 +455,8 @@ namespace ContentTools.Editor
 
                                             // Object field (read-only presentation but still shows ping/select, keep editable if you prefer)
                                             EditorGUI.BeginChangeCheck();
-                                            var next = (GameObject)EditorGUILayout.ObjectField(go, typeof(GameObject),
-                                                false);
-
+                                            //var next = (GameObject)EditorGUILayout.ObjectField(go, typeof(GameObject), false);
+                                            var next = DrawItemWithIconField(ref go, 40f);
                                             // Spacer
                                             //GUILayout.FlexibleSpace();
 
@@ -658,7 +700,7 @@ namespace ContentTools.Editor
                 {
                     Debug.LogError($"[ContentPackBuilder] Icon capture failed for '{p?.name}': {ex.Message}");
                 }
-                
+
                 try
                 {
                     if (p._icons == null) p._icons = new List<Texture2D>();
@@ -689,7 +731,8 @@ namespace ContentTools.Editor
                 }
                 catch (System.Exception exCollect)
                 {
-                    Debug.LogError($"[ContentPackBuilder] Icon registration failed for '{p?.name}': {exCollect.Message}");
+                    Debug.LogError(
+                        $"[ContentPackBuilder] Icon registration failed for '{p?.name}': {exCollect.Message}");
                 }
 
                 AddressablesPackBuilder.BuildPack(p, opts);
@@ -827,53 +870,71 @@ namespace ContentTools.Editor
             Repaint();
         }
 
-        private void DrawItemIssuesUI(GameObject go, bool onlyValid)
+private void DrawItemIssuesUI(GameObject go, bool onlyValid)
+{
+    if (!go) return;
+    if (!_itemIssues.TryGetValue(go, out var issues) || issues == null) return;
+
+    int errorCount = issues.Count(i => i.severity == ContentPackValidator.Severity.Error);
+    int warnCount = issues.Count(i => i.severity == ContentPackValidator.Severity.Warning);
+
+    // Define colored styles for check and x marks
+    GUIStyle greenStyle = new GUIStyle(EditorStyles.miniBoldLabel);
+    greenStyle.normal.textColor = Color.green;
+
+    GUIStyle redStyle = new GUIStyle(EditorStyles.miniBoldLabel);
+    redStyle.normal.textColor = Color.red;
+
+    if (errorCount == 0 && warnCount == 0 && onlyValid)
+    {
+        GUILayout.Label("✓ Valid", greenStyle, GUILayout.Width(60));
+        return;
+    }
+    else if (onlyValid)
+    {
+        GUILayout.Label("✗ Invalid", redStyle, GUILayout.Width(60));
+        return;
+    }
+
+
+    using (new EditorGUILayout.HorizontalScope())
+    {
+        if (errorCount == 0 && warnCount == 0)
         {
-            if (!go) return;
-            if (!_itemIssues.TryGetValue(go, out var issues) || issues == null) return;
+            // GUILayout.Label("✓ Valid", greenStyle, GUILayout.Width(60));
+        }
+        else if (!onlyValid)
+        {
+            if (errorCount > 0)
+                GUILayout.Label($"Errors: {errorCount}", _errStyle, GUILayout.Width(120));
+            if (warnCount > 0)
+                GUILayout.Label($"Warnings: {warnCount}", _warnStyle, GUILayout.Width(140));
+        }
 
-            int errorCount = issues.Count(i => i.severity == ContentPackValidator.Severity.Error);
-            int warnCount = issues.Count(i => i.severity == ContentPackValidator.Severity.Warning);
+        GUILayout.FlexibleSpace();
+    }
 
-            if (errorCount == 0 && warnCount == 0 && onlyValid)
-            {
-                GUILayout.Label("✓ Valid", EditorStyles.miniBoldLabel, GUILayout.Width(60));
-                return;
-            }
-            else if (onlyValid)
-            {
-                return;
-            }
+    if (errorCount > 0 || warnCount > 0)
+    {
+        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+        {
+            // 🔹 Add indentation here
+            GUILayout.Space(10); // adjust this for how much indent you want
 
-            using (new EditorGUILayout.HorizontalScope())
+            foreach (var i in issues)
             {
-                if (errorCount == 0 && warnCount == 0)
+                var style = i.severity == ContentPackValidator.Severity.Error ? _errStyle : _warnStyle;
+
+                using (new EditorGUILayout.HorizontalScope())
                 {
-                    // GUILayout.Label("✓ Valid", EditorStyles.miniBoldLabel, GUILayout.Width(60));
-                }
-                else if (!onlyValid)
-                {
-                    if (errorCount > 0)
-                        GUILayout.Label($"Errors: {errorCount}", _errStyle, GUILayout.Width(120));
-                    if (warnCount > 0)
-                        GUILayout.Label($"Warnings: {warnCount}", _warnStyle, GUILayout.Width(140));
-                }
-
-                GUILayout.FlexibleSpace();
-            }
-
-            if (errorCount > 0 || warnCount > 0)
-            {
-                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
-                {
-                    foreach (var i in issues)
-                    {
-                        var style = i.severity == ContentPackValidator.Severity.Error ? _errStyle : _warnStyle;
-                        EditorGUILayout.LabelField("• " + i.message, style);
-                    }
+                    GUILayout.Space(10); // indent bullet and text
+                    EditorGUILayout.LabelField("• " + i.message, style);
                 }
             }
         }
+    }
+}
+
 
         // ---------- Pack list + Addressables helpers ----------
         private void CreatePackWithName(string safeName)
@@ -994,6 +1055,39 @@ namespace ContentTools.Editor
             return all;
         }
 
+        private void OpenBuildOutputFolder(string path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                EditorUtility.DisplayDialog("Open Folder", "Build Output Folder is empty.", "OK");
+                return;
+            }
+
+            // Ensure it exists so Explorer/Finder opens cleanly
+            path = path.Replace("\\", "/");
+            if (!Directory.Exists(path))
+            {
+                try { Directory.CreateDirectory(path); }
+                catch (System.Exception ex)
+                {
+                    EditorUtility.DisplayDialog("Open Folder", $"Could not create folder:\n{path}\n\n{ex.Message}", "OK");
+                    return;
+                }
+            }
+
+            // Cross-platform open
+#if UNITY_EDITOR_WIN
+            Process.Start(new ProcessStartInfo("explorer.exe", path.Replace("/", "\\")) { UseShellExecute = true });
+#elif UNITY_EDITOR_OSX
+    EditorUtility.RevealInFinder(path); // opens Finder at the folder
+#else
+    EditorUtility.RevealInFinder(path); // Linux/editor support
+#endif
+        }
+        
+// --- Thumbnail cache for icons to keep UI fast ---
+        private readonly Dictionary<string, Texture2D> _iconThumbCache = new Dictionary<string, Texture2D>();
+
         private static string ComputeIconPathForPrefab(GameObject prefab, out string folder)
         {
             folder = null;
@@ -1007,6 +1101,137 @@ namespace ContentTools.Editor
             var fileNameNoExt = Path.GetFileNameWithoutExtension(prefabPath) + "_Icon";
             return Path.Combine(folder, fileNameNoExt + ".png").Replace("\\", "/");
         }
+
+        private Texture2D GetIconTextureForPrefab(GameObject prefab)
+        {
+            if (prefab == null) return null;
+
+            
+            string folder;
+            var iconPath = ComputeIconPathForPrefab(prefab, out folder);
+            if (string.IsNullOrEmpty(iconPath)) return null;
+
+            if (_iconThumbCache.TryGetValue(iconPath, out var cached) && cached != null)
+                return cached;
+
+            // Try the generated icon first
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(iconPath);
+
+            // Fall back to Unity's preview if not generated yet
+            if (tex == null)
+                tex = AssetPreview.GetAssetPreview(prefab) ?? AssetPreview.GetMiniThumbnail(prefab) as Texture2D;
+
+            _iconThumbCache[iconPath] = tex;
+            return tex;
+        }
+        
+        
+        static GUIStyle _wrapLabel;
+
+        private void DrawWrappedHelpBox(string text, float leftPadding = 6f, float rightPadding = 6f, float topPadding = 6f, float bottomPadding = 6f)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+
+            // Container styled like the existing “Validation Rules” box
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+            // Calculate width inside the helpbox
+            float fullWidth = EditorGUIUtility.currentViewWidth;          // the window’s usable width
+            float contentWidth = fullWidth - leftPadding - rightPadding - 20f; // a bit of slack for margins/scrollbars
+
+            // Measure required height for the wrapped text
+            var gc = new GUIContent(text);
+            float height = _wrapLabel.CalcHeight(gc, contentWidth);
+
+            // Reserve and draw
+            var r = GUILayoutUtility.GetRect(contentWidth, height, _wrapLabel, GUILayout.ExpandWidth(true));
+            r.x += leftPadding; r.width = contentWidth;
+            r.y += topPadding;  r.height = height;
+
+            EditorGUI.LabelField(r, gc, _wrapLabel);
+
+            GUILayout.Space(bottomPadding);
+            EditorGUILayout.EndVertical();
+        }
+
+        private GameObject DrawItemWithIconField(ref GameObject itemRef, float iconSize = 40f)
+        {
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                // Reserve a rect for the icon
+                var iconRect = GUILayoutUtility.GetRect(iconSize, iconSize, GUILayout.Width(iconSize),
+                    GUILayout.Height(iconSize));
+
+                // Figure out which asset we can ping (icon if present, else prefab)
+                Texture2D tex = null;
+                Object pingTarget = null;
+
+                if (itemRef != null)
+                {
+                    string folder;
+                    var iconPath = ComputeIconPathForPrefab(itemRef, out folder);
+                    if (!string.IsNullOrEmpty(iconPath))
+                    {
+                        tex = AssetDatabase.LoadAssetAtPath<Texture2D>(iconPath);
+                        if (tex != null) pingTarget = tex;
+                    }
+
+                    if (tex == null)
+                    {
+                        // fallback preview for display only
+                        tex = AssetPreview.GetAssetPreview(itemRef) ??
+                              AssetPreview.GetMiniThumbnail(itemRef) as Texture2D;
+                        pingTarget = itemRef; // fallback ping target = prefab
+                    }
+                }
+
+                // Draw subtle background + thumbnail
+                if (Event.current.type == EventType.Repaint)
+                    EditorGUI.DrawRect(iconRect,
+                        EditorGUIUtility.isProSkin ? new Color(1, 1, 1, 0.05f) : new Color(0, 0, 0, 0.06f));
+                if (tex != null) GUI.DrawTexture(iconRect, tex, ScaleMode.ScaleToFit);
+
+                // Make it feel clickable
+                EditorGUIUtility.AddCursorRect(iconRect, MouseCursor.Link);
+
+                // Click = Ping (left click). Alt+Click also reveals in Finder/Explorer.
+                if (GUI.Button(iconRect, GUIContent.none, GUIStyle.none) && pingTarget != null)
+                {
+                    EditorGUIUtility.PingObject(pingTarget);
+                    Selection.activeObject = pingTarget;
+
+                    if (Event.current != null && (Event.current.alt ||
+                                                  Event.current.control &&
+                                                  Application.platform == RuntimePlatform.OSXEditor))
+                    {
+                        var path = AssetDatabase.GetAssetPath(pingTarget);
+                        if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                            EditorUtility.RevealInFinder(path);
+                    }
+                }
+
+                // The object field
+                itemRef = (GameObject)EditorGUILayout.ObjectField(itemRef, typeof(GameObject), false);
+            }
+            
+            return itemRef;
+        }
+
+
+        private void ClearIconThumbsForPack(ContentPackDefinition pack)
+        {
+            if (pack == null || pack._items == null) return;
+
+            foreach (var go in pack._items)
+            {
+                if (!go) continue;
+                string folder;
+                var path = ComputeIconPathForPrefab(go, out folder);
+                if (string.IsNullOrEmpty(path)) continue;
+                _iconThumbCache.Remove(path);
+            }
+        }
+
 
         private void GenerateIconsForPack(ContentPackDefinition pack)
         {
@@ -1059,9 +1284,13 @@ namespace ContentTools.Editor
                 EditorUtility.SetDirty(pack);
                 AssetDatabase.SaveAssets();
             }
-
+            
             // 3) Push the icons into the "{PackName}_Icons" addressable group
             pack.SyncToAddressables();
+            
+            ClearIconThumbsForPack(pack);
+            Repaint();
+
         }
 
     }
