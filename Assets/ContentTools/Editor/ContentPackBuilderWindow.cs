@@ -373,12 +373,7 @@ namespace ContentTools.Editor
                         if (_foldouts.ContainsKey(key))
                             if (_foldouts[key])
                             {
-
-                                // --- Drag & Drop zone always visible for convenience ---
-                                var dropRect = GUILayoutUtility.GetRect(0, 20, GUILayout.ExpandWidth(true));
-                                GUI.Box(dropRect, "Drag prefabs here", _dropZoneStyle);
-                                HandleDragAndDropForPack(p, dropRect);
-
+                                
                                 EditorGUI.indentLevel++;
                                 // Items list with inline validation
                                 if (p._items != null && p._items.Count > 0)
@@ -456,6 +451,12 @@ namespace ContentTools.Editor
                                 {
                                     EditorGUILayout.LabelField("<no items>", EditorStyles.miniLabel);
                                 }
+
+                                
+                                // --- Drag & Drop zone always visible for convenience ---
+                                var dropRect = GUILayoutUtility.GetRect(0, 20, GUILayout.ExpandWidth(true));
+                                GUI.Box(dropRect, "Drag prefabs here", _dropZoneStyle);
+                                HandleDragAndDropForPack(p, dropRect);
 
                                 EditorGUI.indentLevel--;
                             }

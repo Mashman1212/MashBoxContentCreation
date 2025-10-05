@@ -1,3 +1,5 @@
+#if UNITY_EDITOR
+
 using System.Collections.Generic;
 using System.Reflection;
 using System.Linq;
@@ -19,7 +21,7 @@ namespace ContentTools
 
         private bool autoSyncOnValidate = true;
 
-#if UNITY_EDITOR
+
         // ---------------- Editor-only sync logic ----------------
 
         // Re-entrancy guard to prevent Validate -> Sync -> Validate loops
@@ -29,8 +31,7 @@ namespace ContentTools
         private static readonly HashSet<string> LabelStopWords =
             new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
                 { "bean" }; // ignore "Bean" per your examples; edit as you like
-
-#if UNITY_EDITOR
+        
         // Detect if this is an Asset Import Worker process. Use reflection to support multiple Unity versions.
         private static bool IsAssetImportWorkerProcess()
         {
@@ -48,7 +49,6 @@ namespace ContentTools
 
             return false;
         }
-#endif
 
         private static IEnumerable<string> LabelsFromAssetName(string name)
         {
@@ -68,7 +68,7 @@ namespace ContentTools
         {
             _packName = name;
 
-#if UNITY_EDITOR
+
             if (!autoSyncOnValidate) return;
             if (Application.isPlaying) return; // don't mutate Addressables in play mode
             if (_syncInProgress) return; // currently syncing from a previous call
@@ -105,14 +105,14 @@ namespace ContentTools
                     Debug.LogError($"[{nameof(ContentPackDefinition)}] Auto-sync exception:\n{ex}");
                 }
             };
-#endif
+
         }
 
         [ContextMenu("Addressables/Sync Now")]
         public void SyncToAddressables()
         {
 
-#if UNITY_EDITOR
+
             // Never mutate Addressables from import worker / compile / update / playmode
             if (IsAssetImportWorkerProcess() ||
                 UnityEditor.EditorApplication.isCompiling ||
@@ -121,7 +121,7 @@ namespace ContentTools
             {
                 return;
             }
-#endif
+
             _packName = this.name;
             //if (_syncInProgress) return;
             _syncInProgress = true;
@@ -289,7 +289,7 @@ UnityEditor.EditorUtility.SetDirty(schema);
                 _syncInProgress = false;
             }
         }
-#endif // UNITY_EDITOR
+
 
         // -------------- Utility: enum assignment helpers (as in your original) --------------
         private static bool TryAssignEnum(System.Type enumType, string[] candidates, out object value)
@@ -354,8 +354,7 @@ UnityEditor.EditorUtility.SetDirty(schema);
             var fi = t.GetField(prop, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             if (fi != null && fi.FieldType == typeof(bool)) { fi.SetValue(obj, value); }
         }
-
-#if UNITY_EDITOR
+        
         [ContextMenu("Content/Clean Missing References")]
         public void RemoveMissingReferences()
         {
@@ -377,6 +376,8 @@ UnityEditor.EditorUtility.SetDirty(schema);
                 Debug.Log($"[{nameof(ContentPackDefinition)}] Removed {removed} missing reference(s) from {_packName}.");
             }
         }
-#endif
+
     }
 }
+
+#endif
