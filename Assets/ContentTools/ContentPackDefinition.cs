@@ -3,6 +3,8 @@
 using System.Collections.Generic;
 using System.Reflection;
 using System.Linq;
+using UnityEditor;
+using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.AddressableAssets.Settings.GroupSchemas;
 using UnityEngine;
 
@@ -17,6 +19,10 @@ namespace ContentTools
         [Header("Content")] [Tooltip("Drop prefabs here to include them in this pack.")]
         public List<GameObject> _items = new List<GameObject>();
 
+        [Header("Icons")]
+        [Tooltip("Auto-populated list of icon textures generated for this pack.")]
+        public List<Texture2D> _icons = new List<Texture2D>();
+        
         string addressablesGroupName;
 
         private bool autoSyncOnValidate = true;
@@ -185,7 +191,7 @@ namespace ContentTools
                 {
                     schema = group.AddSchema<BundledAssetGroupSchema>();
                 }
-                
+
                 // ---- Configure schema to match your screenshot ----
                 var prof = settings.profileSettings;
 
@@ -194,7 +200,8 @@ namespace ContentTools
                 schema.BuildPath.SetVariableByName(settings, buildVar);
 
                 // Load Path: {Application.streamingAssetsPath}/Addressables/Customization
-                string loadVar = EnsureProfileVar(prof, "Customization_LoadPath", "{Application.streamingAssetsPath}/Addressables/Customization");
+                string loadVar = EnsureProfileVar(prof, "Customization_LoadPath",
+                    "{Application.streamingAssetsPath}/Addressables/Customization");
                 schema.LoadPath.SetVariableByName(settings, loadVar);
 
                 // Common settings (attempt when available; reflection keeps this version-agnostic)
@@ -211,7 +218,7 @@ namespace ContentTools
                 SetEnumIfExists(schema, "InternalIdNamingMode", "Filename", "FileName");
                 SetEnumIfExists(schema, "InternalAssetNamingMode", "Filename", "FileName");
 
-UnityEditor.EditorUtility.SetDirty(schema);
+                UnityEditor.EditorUtility.SetDirty(schema);
                 UnityEditor.EditorUtility.SetDirty(group);
                 UnityEditor.AssetDatabase.SaveAssets();
                 UnityEditor.AssetDatabase.Refresh();
@@ -252,7 +259,7 @@ UnityEditor.EditorUtility.SetDirty(schema);
                     if (address == addressBase)
                     {
                         usedAddresses.Add(address);
-                    
+
                         entry.address = address;
 
                         // Apply labels based on asset name tokens
@@ -263,7 +270,7 @@ UnityEditor.EditorUtility.SetDirty(schema);
 
                         UnityEditor.EditorUtility.SetDirty(entry.TargetAsset);
                     }
- 
+
                 }
 
                 // Remove entries that are no longer referenced
@@ -283,11 +290,131 @@ UnityEditor.EditorUtility.SetDirty(schema);
                 UnityEditor.EditorUtility.SetDirty(group);
                 UnityEditor.AssetDatabase.SaveAssets();
                 UnityEditor.AssetDatabase.Refresh();
+
+
+
+                // ===== ICONS: keep icons in a separate "{PackName}_Icons" group =====
+                var iconGroupName = PackName + "_Icons";
+                var iconGroup = EnsureBundledGroup(settings, iconGroupName);
+
+// Copy current entries & used addresses
+                var iconExisting = iconGroup.entries != null
+                    ? iconGroup.entries.ToList()
+                    : new List<UnityEditor.AddressableAssets.Settings.AddressableAssetEntry>();
+                var iconUsedAddrs = new HashSet<string>(
+                    iconExisting.Select(e => e.address).Where(a => !string.IsNullOrEmpty(a))
+                );
+
+// Add/move each Texture2D in _icons to icon group
+                if (_icons != null)
+                {
+                    foreach (var tex in _icons)
+                    {
+                        if (tex == null) continue;
+                        var texPath = UnityEditor.AssetDatabase.GetAssetPath(tex);
+                        if (string.IsNullOrEmpty(texPath)) continue;
+
+                        var guid = UnityEditor.AssetDatabase.AssetPathToGUID(texPath);
+                        if (string.IsNullOrEmpty(guid)) continue;
+
+                        var entry = settings.FindAssetEntry(guid);
+                        if (entry == null || entry.parentGroup != iconGroup)
+                        {
+                            entry = settings.CreateOrMoveEntry(guid, iconGroup);
+                        }
+
+                        string addressBase = tex.name;
+                        string address = addressBase;
+                        int i = 1;
+                        while (iconUsedAddrs.Contains(address))
+                            address = $"{addressBase}_{i++}";
+
+                        if (address == addressBase)
+                        {
+                            iconUsedAddrs.Add(address);
+                            entry.address = address;
+
+                            foreach (var lab in LabelsFromAssetName(tex.name))
+                                entry.SetLabel(lab, true, true);
+
+                            EditorUtility.SetDirty(entry.TargetAsset);
+                        }
+                    }
+                }
+
+// Remove icon entries no longer referenced by _icons
+                var currentIconGuids = new HashSet<string>(
+                    (_icons ?? new List<Texture2D>())
+                    .Where(x => x != null)
+                    .Select(x => UnityEditor.AssetDatabase.AssetPathToGUID(UnityEditor.AssetDatabase.GetAssetPath(x)))
+                    .Where(g => !string.IsNullOrEmpty(g))
+                );
+
+                foreach (var old in iconExisting)
+                {
+                    if (!currentIconGuids.Contains(old.guid))
+                        settings.RemoveAssetEntry(old.guid);
+                }
+
+                EditorUtility.SetDirty(iconGroup);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
             }
             finally
             {
                 _syncInProgress = false;
             }
+        }
+
+
+        // add inside class (utility)
+        private AddressableAssetGroup EnsureBundledGroup(AddressableAssetSettings settings, string groupName)
+        {
+            var group = settings.FindGroup(groupName);
+            if (group == null)
+            {
+                // clean stray "New Group" if empty
+                var stray = settings.groups.FirstOrDefault(g => g != null && g.Name == "New Group");
+                if (stray != null && (stray.entries == null || stray.entries.Count == 0))
+                    settings.RemoveGroup(stray);
+
+                group = settings.CreateGroup(
+                    groupName,
+                    setAsDefaultGroup: false,
+                    readOnly: false,
+                    postEvent: false,
+                    schemasToCopy: null,
+                    typeof(BundledAssetGroupSchema)
+                );
+            }
+
+            // Ensure schema + profile vars like your primary group
+            var schema = group.GetSchema<BundledAssetGroupSchema>() ?? group.AddSchema<BundledAssetGroupSchema>();
+            var prof = settings.profileSettings;
+
+            string buildVar = EnsureProfileVar(prof, "Content_BuildPath", "Content/[BuildTarget]");
+            schema.BuildPath.SetVariableByName(settings, buildVar);
+
+            string loadVar = EnsureProfileVar(prof, "Customization_LoadPath",
+                "{Application.streamingAssetsPath}/Addressables/Customization");
+            schema.LoadPath.SetVariableByName(settings, loadVar);
+
+            SetEnumIfExists(schema, "Compression", "LZ4");
+            SetBoolIfExists(schema, "IncludeInBuild", true);
+            SetBoolIfExists(schema, "UseAssetBundleCache", true);
+            SetBoolIfExists(schema, "UseAssetBundleCrc", false);
+            SetBoolIfExists(schema, "UseAssetBundleCrcForCachedBundles", true);
+            SetBoolIfExists(schema, "IncludeAddressesInCatalog", true);
+            SetBoolIfExists(schema, "IncludeGUIDInCatalog", true);
+            SetBoolIfExists(schema, "IncludeLabelsInCatalog", true);
+            SetEnumIfExists(schema, "BundleMode", "PackTogether");
+            SetEnumIfExists(schema, "BundleNaming", "Filename", "FileName", "NoHash");
+            SetEnumIfExists(schema, "InternalIdNamingMode", "Filename", "FileName");
+            SetEnumIfExists(schema, "InternalAssetNamingMode", "Filename", "FileName");
+
+            EditorUtility.SetDirty(schema);
+            EditorUtility.SetDirty(group);
+            return group;
         }
 
 

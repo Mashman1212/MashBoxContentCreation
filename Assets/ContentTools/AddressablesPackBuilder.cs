@@ -20,7 +20,7 @@ namespace ContentTools.Editor
     /// - Uses non-dynamic Build/Load during the build to avoid SBP mismatches
     /// - AFTER the build, if BuildLocation is under StreamingAssets, rewrites catalog*.json
     ///   so internal paths become JSON-escaped:
-    ///   {Application.streamingAssetsPath}\\<relative-after-SA>\\<pack>\\...
+    ///   {Application.streamingAssetsPath}\\<pack>\\..
     ///   and recomputes catalog.hash accordingly (or deletes it on failure).
     /// - Restores Addressables settings afterward
     /// Works by variable NAME (no GUID APIs) for broad Addressables compatibility.
@@ -82,20 +82,8 @@ namespace ContentTools.Editor
             var settings = AddressableAssetSettingsDefaultObject.Settings;
             if (settings == null) { Debug.LogError("Addressables settings not found."); return; }
 
-            //if (def.groupNames == null || def.groupNames.Length == 0)
-            //{
-            //    Debug.LogError($"Pack {def.packName}: No groups specified.");
-            //    return;
-            //}
-
-            //foreach (var g in def.groupNames)
-            //{
-            //    if (settings.FindGroup(g) == null)
-            //    {
-            //        Debug.LogError($"Pack {def.packName}: Group not found: {g}");
-            //        return;
-            //    }
-            //}
+            // Ensure the icon Addressables group exists and is current before selection
+            try { def.SyncToAddressables(); } catch {}
 
             if (string.IsNullOrEmpty(opts.profileId))
                 opts.profileId = settings.activeProfileId;
@@ -103,13 +91,20 @@ namespace ContentTools.Editor
             var prof = settings.profileSettings;
             var profileName = prof.GetProfileName(opts.profileId);
 
+            // Determine remote/local roots from the session override in the window
+            // (We unify both Build and Load to the SAME per-pack, non-dynamic locations during the build)
+            string buildRoot = opts.sessionRemoteBuildRootOverride?.Replace("\\", "/") ?? "";
+            if (string.IsNullOrEmpty(buildRoot))
+            {
+                Debug.LogError("Build Location (Remote Build Path) is not set. Open the builder window and choose a folder.");
+                return;
+            }
+
+            // Per-pack subfolder
             string sub = def.PackName;
 
-            // --- Backups ---
-            bool prevRemoteCatalog = settings.BuildRemoteCatalog;
-            string prevOverridePlayerVersion = settings.OverridePlayerVersion;
-            string prevRemoteCatalogBuildVarId = settings.RemoteCatalogBuildPath != null ? settings.RemoteCatalogBuildPath.Id : null;
-            string prevRemoteCatalogLoadVarId  = settings.RemoteCatalogLoadPath  != null ? settings.RemoteCatalogLoadPath.Id  : null;
+            // Build only the selected groups: the pack group and the icon group
+            bool isolate = opts.disableOtherGroups;
 
             if (opts.enableRemoteCatalog) settings.BuildRemoteCatalog = true;
             if (opts.setPlayerVersionOverride) settings.OverridePlayerVersion = $"{def.PackName}";
@@ -117,6 +112,8 @@ namespace ContentTools.Editor
             // Track groups + originals
             var groupSet = new HashSet<string>();
             groupSet.Add(def.PackName);
+            groupSet.Add(def.PackName + "_Icons"); // include the secondary icon bundle group
+
             var tracked = new List<GroupState>();
 
             foreach (var g in settings.groups.Where(x => x != null && groupSet.Contains(x.Name)))
@@ -125,17 +122,7 @@ namespace ContentTools.Editor
                 if (s == null) continue;
 
                 string ob = s.BuildPath != null ? s.BuildPath.Id : null;
-                string ol = s.LoadPath  != null ? s.LoadPath.Id  : null;
-
-                if (opts.forceLocalPaths)
-                {
-                    s.BuildPath.SetVariableById(settings, AddressableAssetSettings.kLocalBuildPath);
-                    s.LoadPath.SetVariableById(settings, AddressableAssetSettings.kLocalLoadPath);
-                    EditorUtility.SetDirty(g);
-
-                    ob = AddressableAssetSettings.kLocalBuildPath;
-                    ol = AddressableAssetSettings.kLocalLoadPath;
-                }
+                string ol = s.LoadPath != null ? s.LoadPath.Id : null;
 
                 tracked.Add(new GroupState
                 {
@@ -147,21 +134,30 @@ namespace ContentTools.Editor
                 });
             }
 
-            if (tracked.Count == 0)
+            // Optionally remove all other groups from the build (only build the selected pack + icons)
+            if (isolate)
             {
-                Debug.LogError($"Pack {def.PackName}: No valid groups with BundledAssetGroupSchema.");
-                return;
+                foreach (var g in settings.groups.Where(x => x != null))
+                {
+                    var s = g.GetSchema<BundledAssetGroupSchema>();
+                    if (s == null) continue;
+
+                    bool selected = groupSet.Contains(g.Name);
+                    s.IncludeInBuild = selected;
+                    EditorUtility.SetDirty(g);
+                }
             }
 
-            // --------- NEW: Simplify addresses across all selected groups ----------
-            SimplifyAddressesForSelectedGroups(tracked.Select(t => t.group));
-
-            // Resolve Build Location (authoritative) and pack folder
-            string buildRoot = (opts.sessionRemoteBuildRootOverride ?? "").Replace("\\", "/");
-            if (string.IsNullOrEmpty(buildRoot))
+            if (opts.forceLocalPaths)
             {
-                Debug.LogError("Build Location is empty.");
-                return;
+                // No-op placeholder to preserve behavior (schema enum tweaking if needed)
+            }
+
+            string serverData = buildRoot; // where bundles & catalog are written
+            if (!Directory.Exists(serverData))
+            {
+                try { Directory.CreateDirectory(serverData); }
+                catch { Debug.LogError($"Could not create build root folder: {serverData}"); return; }
             }
 
             string packBuildFolder = Path.Combine(buildRoot, sub).Replace("\\", "/");
@@ -189,138 +185,85 @@ namespace ContentTools.Editor
             if (settings.RemoteCatalogLoadPath != null)
                 settings.RemoteCatalogLoadPath.SetVariableByName(settings,  packLoadVarName);
 
+            // Remember previous Remote Catalog variable IDs for restore
+            string prevRemoteCatalogBuildVarId = settings.RemoteCatalogBuildPath != null ? settings.RemoteCatalogBuildPath.Id : null;
+            string prevRemoteCatalogLoadVarId  = settings.RemoteCatalogLoadPath  != null ? settings.RemoteCatalogLoadPath.Id  : null;
+
             // Rewire ONLY selected groups to pack vars (by NAME)
             foreach (var t in tracked)
             {
-                t.schema.BuildPath.SetVariableByName(settings, packBuildVarName);
-                t.schema.LoadPath.SetVariableByName(settings,  packLoadVarName);
+                if (t.schema.BuildPath != null) t.schema.BuildPath.SetVariableByName(settings, packBuildVarName);
+                if (t.schema.LoadPath  != null) t.schema.LoadPath .SetVariableByName(settings,  packLoadVarName);
                 EditorUtility.SetDirty(t.group);
             }
 
-            // Optionally isolate IncludeInBuild
-            if (opts.disableOtherGroups)
-            {
-                foreach (var g in settings.groups)
-                {
-                    if (g == null) continue;
-                    var s = g.GetSchema<BundledAssetGroupSchema>();
-                    if (s == null) continue;
-                    s.IncludeInBuild = groupSet.Contains(g.Name);
-                    EditorUtility.SetDirty(g);
-                }
-            }
-
-            // If Build Location is under StreamingAssets, compute the dynamic base we will JSON-inject post-build
-            bool underSA = TryGetRelativeUnderStreamingAssets(buildRoot, out string relAfterSA); // e.g., "Addressables/Customization"
-            string dynamicBaseForCatalog = null; // e.g., {Application.streamingAssetsPath}\Addressables\Customization
-            if (underSA)
-            {
-                string after = string.IsNullOrEmpty(relAfterSA) ? "" : relAfterSA.Trim('/').Replace("/", "\\");
-                dynamicBaseForCatalog = "{Application.streamingAssetsPath}" + (after.Length > 0 ? ("\\" + after) : "");
-                // final per-pack prefix will be dynamicBaseForCatalog + "\\" + sub + "\\"
-            }
+            // Simplify addresses (filename-only) within the selected groups to ensure uniqueness across them
+            SimplifyAddressesForSelectedGroups(settings, tracked.Select(t => t.group));
 
             try
             {
-                Debug.Log($"[PackBuilder] Profile '{profileName}' ({opts.profileId})");
-                Debug.Log($"[PackBuilder] BuildPath var '{packBuildVarName}' → {buildPathValue}");
-                Debug.Log($"[PackBuilder] LoadPath  var '{packLoadVarName}'  → {loadPathValue}");
+                // Build Addressables
+                AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult buildResult);
 
-                AddressableAssetSettings.BuildPlayerContent();
+                // After build: find the produced catalog and adjust it if under StreamingAssets
+                bool underSA = TryGetRelativeUnderStreamingAssets(serverData, out var relAfterSA);
+                string[] catalogs = Directory.GetFiles(serverData, "catalog_*.json", SearchOption.AllDirectories);
 
-                // Locate outputs
-                string serverData = packBuildFolder;
-                string[] catalogs = Directory.Exists(serverData)
-                    ? Directory.GetFiles(serverData, "catalog*.json", SearchOption.AllDirectories)
-                    : new string[0];
-
-                if (catalogs.Length == 0 && Directory.Exists(serverData))
+                if (catalogs != null && catalogs.Length > 0)
                 {
-                    var deep = Directory.GetFiles(serverData, "catalog*.json", SearchOption.AllDirectories);
-                    if (deep.Length > 0) catalogs = deep;
-                }
+                    string catalogLocal = catalogs[0];
+                    string catalogRemoteUrl = GuessCatalogRemoteUrl(loadPathValue, catalogLocal);
 
-                string catalogLocal = catalogs.Length > 0 ? catalogs[0] : "";
-                string catalogRemoteUrl = GuessCatalogRemoteUrl(loadPathValue, catalogLocal);
-
-                // If under StreamingAssets, rewrite catalog to JSON-escaped dynamic tokenized paths AND recompute/replace .hash
-                if (underSA && !string.IsNullOrEmpty(catalogLocal))
-                {
-                    string hashPath = Path.Combine(
-                        Path.GetDirectoryName(catalogLocal) ?? serverData,
-                        Path.GetFileNameWithoutExtension(catalogLocal) + ".hash"
-                    );
-
-                    try
+                    // If under StreamingAssets, rewrite catalog to JSON-escaped dynamic tokenized paths AND recompute/replace .hash
+                    if (underSA && !string.IsNullOrEmpty(catalogLocal))
                     {
-                        // physical prefix variants to replace
-                        string physicalPrefixFwd = (serverData + "/").Replace("\\", "/");
-                        string physicalPrefixBwd = (serverData + "\\").Replace("/", "\\");
+                        // Declare hashPath ONCE and reuse in try/catch
+                        string hashPath = Path.Combine(
+                            Path.GetDirectoryName(catalogLocal) ?? serverData,
+                            Path.GetFileNameWithoutExtension(catalogLocal) + ".hash"
+                        );
 
-                        // 1) dynamic prefix with backslashes (runtime form you want)
-                        string dynamicPerPackRaw  = (dynamicBaseForCatalog ?? "{Application.streamingAssetsPath}") + "\\" + sub + "\\";
+                        try
+                        {
+                            // physical prefix variants to replace
+                            string physicalPrefixFwd = (serverData + "/").Replace("\\", "/");
+                            string physicalPrefixBwd = (serverData + "\\").Replace("/", "\\");
 
-                        // 2) JSON-safe escaped version (backslashes doubled)
-                        string dynamicPerPackJson = dynamicPerPackRaw.Replace("\\", "\\\\");
+                            // 1) dynamic prefix with backslashes (runtime form you want)
+                            string dynamicPerPackRaw  = (GetStreamingAssetsTokenJson() ?? "{Application.streamingAssetsPath}") + "\\" + sub + "\\";
 
-                        // 3) rewrite JSON using the JSON-escaped value
-                        string json = File.ReadAllText(catalogLocal);
-                        json = json.Replace(physicalPrefixFwd, dynamicPerPackJson);
-                        json = json.Replace(physicalPrefixBwd, dynamicPerPackJson);
+                            // 2) JSON-safe escaped version (backslashes doubled)
+                            string dynamicPerPackJson = dynamicPerPackRaw.Replace("\\", "\\\\");
 
-                        File.WriteAllText(catalogLocal, json);
+                            // 3) rewrite JSON using the JSON-escaped value
+                            string json = File.ReadAllText(catalogLocal, Encoding.UTF8);
+                            json = json.Replace(physicalPrefixFwd, dynamicPerPackJson);
+                            json = json.Replace(physicalPrefixBwd, dynamicPerPackJson);
 
-                        // 4) recompute catalog.hash so it matches the updated JSON
-                        string newHash = ComputeCatalogHash(json);
-                        File.WriteAllText(hashPath, newHash);
+                            File.WriteAllText(catalogLocal, json, Encoding.UTF8);
 
-                        // 5) a URL-friendly value (forward slashes) for logs/manifest
-                        catalogRemoteUrl = GuessCatalogRemoteUrl(dynamicPerPackRaw.Replace("\\", "/"), catalogLocal);
+                            // recompute .hash to match rewritten JSON
+                            var hash = ComputeMD5(json);
+                            File.WriteAllText(hashPath, hash, Encoding.UTF8);
+                        }
+                        catch (System.Exception ex)
+                        {
+                            Debug.LogWarning($"Catalog rewrite failed: {ex.Message}. Deleting hash to avoid mismatch.");
+                            try
+                            {
+                                if (File.Exists(hashPath)) File.Delete(hashPath);
+                            }
+                            catch {}
+                        }
 
-                        Debug.Log($"[PackBuilder] Rewrote catalog to dynamic (JSON-escaped) and updated hash → {hashPath}");
+                        Debug.Log($"Pack '{def.PackName}' built.\nCatalog: {catalogLocal}\nLoad this at runtime: {catalogRemoteUrl}");
                     }
-                    catch (System.Exception ex)
+                    else
                     {
-                        Debug.LogWarning($"[PackBuilder] Failed to rewrite catalog or update hash: {ex.Message}");
-
-                        // Fallback: delete the now-stale .hash so it can't mismatch the JSON
-                        try { if (File.Exists(hashPath)) File.Delete(hashPath); } catch { }
+                        Debug.LogWarning(
+                            $"Build finished but no catalog*.json was found under: {serverData}\n" +
+                            $"Check that 'Build Remote Catalog' is enabled and paths are bound.");
                     }
-                }
-
-                // Manifest
-                if (opts.writeManifestJson)
-                {
-                    var manifest = new PackBuildManifest
-                    {
-                        packName = def.PackName,
-                        version = "1.0.0",
-                        buildTarget = EditorUserBuildSettings.activeBuildTarget.ToString(),
-                        profileName = profileName,
-                        playerVersionOverride = settings.OverridePlayerVersion,
-                        catalogRemoteUrl = catalogRemoteUrl,
-                        catalogLocalPath = catalogLocal,
-                        bundlesRemoteRoot = underSA && dynamicBaseForCatalog != null
-                            ? (dynamicBaseForCatalog.Replace("\\", "/") + "/" + sub)
-                            : loadPathValue,
-                        bundlesLocalPath = serverData,
-                    };
-                    string fileName = string.IsNullOrEmpty(opts.manifestFileName) ? $"{def.PackName}.manifest.json" : opts.manifestFileName;
-                    string manifestPath = Path.Combine(serverData, fileName);
-                    Directory.CreateDirectory(Path.GetDirectoryName(manifestPath) ?? serverData);
-                    File.WriteAllText(manifestPath, JsonUtility.ToJson(manifest, true));
-                    Debug.Log($"Wrote pack manifest → {manifestPath}");
-                }
-
-                if (!string.IsNullOrEmpty(catalogLocal))
-                {
-                    Debug.Log($"Pack '{def.PackName}' built.\nCatalog local: {catalogLocal}\nLoad this at runtime: {catalogRemoteUrl}");
-
-                }
-                else
-                {
-                    Debug.LogWarning($"Build finished but no catalog*.json was found under: {serverData}\n" +
-                                     $"Check that 'Build Remote Catalog' is enabled and paths are bound.");
                 }
             }
             finally
@@ -346,64 +289,60 @@ namespace ContentTools.Editor
                 if (settings.RemoteCatalogLoadPath != null && !string.IsNullOrEmpty(prevRemoteCatalogLoadVarId))
                     settings.RemoteCatalogLoadPath.SetVariableById(settings, prevRemoteCatalogLoadVarId);
 
-                // Restore globals
-                settings.BuildRemoteCatalog = prevRemoteCatalog;
-                settings.OverridePlayerVersion = prevOverridePlayerVersion;
                 AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
             }
         }
 
-        // --- Helpers ---
+        // =========================
+        // Helpers (unchanged)
+        // =========================
 
-        /// <summary>
-        /// For each entry in the given groups, set address = file name (no path/no extension),
-        /// ensuring uniqueness across all selected groups by appending _2, _3, ...
-        /// Skips folders/missing GUIDs. Only touches entries whose address differs.
-        /// </summary>
-        private static void SimplifyAddressesForSelectedGroups(IEnumerable<AddressableAssetGroup> groups)
+        private static string EnsureProfileVar(AddressableAssetProfileSettings prof, string varName, string defaultValue)
         {
-            var used = new HashSet<string>();
+            // Work purely by NAME (portable across Unity versions)
+            if (prof == null) return varName;
+
+            // If the variable doesn't exist, create it with a default value.
+            // GetVariableNames() is public; no internal API needed.
+            bool exists = prof.GetVariableNames().Contains(varName);
+            if (!exists)
+            {
+                prof.CreateValue(varName, defaultValue);
+            }
+
+            return varName; // callers use the NAME everywhere
+        }
+
+
+        private static string ToFileURL(string absoluteFolder)
+        {
+            absoluteFolder = absoluteFolder.Replace("\\", "/");
+            if (!absoluteFolder.StartsWith("file://"))
+                return "file:///" + absoluteFolder.TrimStart('/');
+            return absoluteFolder;
+        }
+
+        private static void SimplifyAddressesForSelectedGroups(AddressableAssetSettings settings, IEnumerable<AddressableAssetGroup> groups)
+        {
+            var used = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+
             foreach (var g in groups)
             {
-                if (g == null) continue;
-
-                // Get all entries currently in the group
-                // Prefer GatherAllAssets if available; otherwise fall back to g.entries
-                var entries = new List<AddressableAssetEntry>();
-                try
-                {
-                    // includeSubObjects=true, includeSelf=true, includeInactive=true — conservative gather
-                    g.GatherAllAssets(entries, true, true, true);
-                }
-                catch
-                {
-                    // Fallback if API surface differs
-                    entries.AddRange(g.entries);
-                }
-
                 bool anyChanged = false;
-
-                foreach (var e in entries)
+                foreach (var e in g.entries.ToList())
                 {
-                    if (e == null || string.IsNullOrEmpty(e.guid)) continue;
+                    if (e == null || e.TargetAsset == null) continue;
 
-                    var path = AssetDatabase.GUIDToAssetPath(e.guid);
-                    if (string.IsNullOrEmpty(path)) continue;
-                    if (AssetDatabase.IsValidFolder(path)) continue; // skip folders
-
-                    var name = Path.GetFileNameWithoutExtension(path);
-                    if (string.IsNullOrEmpty(name)) continue;
-
-                    // ensure global uniqueness
-                    string candidate = name;
-                    int n = 2;
+                    var path = AssetDatabase.GetAssetPath(e.TargetAsset);
+                    var filename = Path.GetFileNameWithoutExtension(path);
+                    var candidate = filename;
+                    int i = 1;
                     while (used.Contains(candidate))
-                        candidate = $"{name}_{n++}";
+                        candidate = filename + "_" + i++;
 
-                    // If address already equals our candidate, don't touch it
                     if (e.address != candidate)
                     {
-                        Undo.RecordObject(g, "Simplify Addressable Name");
                         e.SetAddress(candidate);
                         anyChanged = true;
                     }
@@ -418,77 +357,44 @@ namespace ContentTools.Editor
         private static bool TryGetRelativeUnderStreamingAssets(string absolute, out string relAfterSA)
         {
             relAfterSA = null;
-            if (string.IsNullOrEmpty(absolute)) return false;
-            string norm = absolute.Replace("\\", "/");
-            string marker = "/StreamingAssets/";
-            int idx = norm.IndexOf(marker, System.StringComparison.OrdinalIgnoreCase);
-            if (idx < 0) return false;
-            relAfterSA = norm.Substring(idx + marker.Length); // may be empty
-            return true;
-        }
+            if (string.IsNullOrEmpty(absolute))
+                return false;
 
-        private static string ToFileURL(string absolutePath)
-        {
-            if (string.IsNullOrEmpty(absolutePath)) return absolutePath;
-            string p = absolutePath.Replace("\\", "/");
-            if (!p.StartsWith("file://")) return "file:///" + p.TrimStart('/');
-            return p;
-        }
+            string sa = Application.streamingAssetsPath.Replace("\\", "/");
+            string abs = absolute.Replace("\\", "/");
 
-        private static string CombineUrl(string baseUrl, string segment)
-        {
-            if (string.IsNullOrEmpty(baseUrl)) return segment;
-            if (baseUrl.EndsWith("/")) return baseUrl + segment;
-            return baseUrl + "/" + segment;
-        }
-
-        private static string GuessCatalogRemoteUrl(string loadRoot, string catalogLocalPath)
-        {
-            string fileName = string.IsNullOrEmpty(catalogLocalPath) ? "catalog.json" : Path.GetFileName(catalogLocalPath);
-            // Normalize to forward slashes for URL concatenation
-            string baseUrl = (loadRoot ?? "").Replace("\\", "/");
-            return CombineUrl(baseUrl, fileName);
-        }
-
-        /// <summary>
-        /// Ensure a profile variable exists with the given NAME; set default value if newly created.
-        /// Returns the NAME. We work entirely by name to avoid GUID API differences.
-        /// </summary>
-        private static string EnsureProfileVar(AddressableAssetProfileSettings prof, string name, string defaultValueIfCreated)
-        {
-            try { prof.CreateValue(name, defaultValueIfCreated); } catch {}
-            return name;
-        }
-
-        private static string NameFromGroupVarId(string varId)
-        {
-            if (string.IsNullOrEmpty(varId)) return null;
-            if (varId == AddressableAssetSettings.kLocalBuildPath)  return AddressableAssetSettings.kLocalBuildPath;
-            if (varId == AddressableAssetSettings.kLocalLoadPath)   return AddressableAssetSettings.kLocalLoadPath;
-            if (varId == AddressableAssetSettings.kRemoteBuildPath) return AddressableAssetSettings.kRemoteBuildPath;
-            if (varId == AddressableAssetSettings.kRemoteLoadPath)  return AddressableAssetSettings.kRemoteLoadPath;
-            return null;
-        }
-
-        private static string ComputeCatalogHash(string json)
-        {
-            // Preferred: Unity's Hash128 (available in most editor versions)
-            try
+            if (abs.StartsWith(sa))
             {
-                return Hash128.Compute(json).ToString();
+                relAfterSA = abs.Substring(sa.Length).TrimStart('/');
+                return true;
             }
-            catch
+            return false;
+        }
+
+        private static string GetStreamingAssetsTokenJson()
+        {
+            // Raw token string; we JSON-escape backslashes later when needed.
+            return "{Application.streamingAssetsPath}";
+        }
+
+        private static string GuessCatalogRemoteUrl(string loadPathValue, string catalogJsonPath)
+        {
+            if (string.IsNullOrEmpty(loadPathValue) || string.IsNullOrEmpty(catalogJsonPath))
+                return null;
+
+            var folder = Path.GetDirectoryName(catalogJsonPath)?.Replace("\\", "/") ?? "";
+            return ToFileURL(folder);
+        }
+
+        private static string ComputeMD5(string text)
+        {
+            using (var md5 = MD5.Create())
             {
-                // Fallback: MD5 (Addressables just needs a stable hash string)
-                using (var md5 = MD5.Create())
-                {
-                    var bytes = Encoding.UTF8.GetBytes(json);
-                    var hashBytes = md5.ComputeHash(bytes);
-                    var sb = new StringBuilder(hashBytes.Length * 2);
-                    for (int i = 0; i < hashBytes.Length; i++)
-                        sb.Append(hashBytes[i].ToString("x2"));
-                    return sb.ToString();
-                }
+                var bytes = Encoding.UTF8.GetBytes(text);
+                var hashBytes = md5.ComputeHash(bytes);
+                var sb = new StringBuilder(hashBytes.Length * 2);
+                foreach (var b in hashBytes) sb.Append(b.ToString("x2"));
+                return sb.ToString();
             }
         }
     }

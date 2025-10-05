@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 9964a7f3248cfe242b246176ac83973f
   m_currentHash:
     serializedVersion: 2
-    Hash: 3e3ed1f4c87972543c666ee7b2aa02b6
+    Hash: f482baa3e1492ff7fce8ea493ffa6256
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 0
@@ -35,9 +35,9 @@ MonoBehaviour:
   m_CheckForContentUpdateRestrictionsOption: 0
   m_MonoScriptBundleCustomNaming: 
   m_RemoteCatalogBuildPath:
-    m_Id: 51118b00c7f9c9f47a9c3e876017c920
+    m_Id: 85b9b3ba5cabe384287b3b3e3a360c9e
   m_RemoteCatalogLoadPath:
-    m_Id: 0d37e287349628d42a9e4a56ee0f0910
+    m_Id: 59eae6a16afe3b14389b476182c7e4d3
   m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
@@ -46,6 +46,7 @@ MonoBehaviour:
   m_GroupAssets:
   - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
   - {fileID: 11400000, guid: 5a36b0bd3bb8a4340b5a2331e808a8f8, type: 2}
+  - {fileID: 11400000, guid: 2bfa5e27de4d23847a3b5e46abc5e46b, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
     m_CleanupStreamingAssetsAfterBuilds: 1
@@ -182,6 +183,8 @@ MonoBehaviour:
     - Purples
     - Oranges
     - Purple 1
+    - Icon
+    - White
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: 80a64dd5444db09479054d5399c86e50, type: 2}
