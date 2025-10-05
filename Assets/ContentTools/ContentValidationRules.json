@@ -1,0 +1,129 @@
+{
+    "SuperTypes": [
+        "Scooter",
+        "BMX"
+    ],
+    "Colors": [
+        "Black","Blue","Red","Green","Purple","Raw","Chrome","Teal","Tan",
+        "Orange","Yellow","Pink","White","Grey","Brown","Unique","Gold","Oil Slick","Vanilla_Bean"
+    ],
+    "AllowedPairs": [
+        {
+            "SuperType": "Scooter",
+            "Types": ["Deck","Bars","Clamp","Forks","Headset","Griptape","Wheel","Urethane","Grip","Bar End"]
+        },
+        {
+            "SuperType": "BMX",
+            "Types": [
+                "Frame","Bars","Bar End","Forks","Headset","BB","Chain","CrankArm","Front Hub",
+                "Rear Hub","Grip","Hub Guard","Mag","Nipples","Pedal","Peg","Rim","Seat","Seat Clamp",
+                "Seat Post","Spokes","Sprocket","Stem","Stem Bolt","Stem Cap","Tire","Valve Cap"
+            ]
+        }
+    ],
+    "AnchorRules": [
+        {
+            "AppliesToSuperType": "Scooter",
+            "AppliesToType": "Deck",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+                "BB_Anchor",
+                "Forks_Anchor",
+                "Griptape",
+                "Headset_Anchor",
+                "RearWheel_Anchor",
+                "Mesh"
+            ],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "Scooter",
+            "AppliesToType": "Clamp",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+                "StemBolt_Anchor_1",
+                "StemBolt_Anchor_2",
+                "StemBolt_Anchor_3",
+                "StemBolt_Anchor_4",
+                "Bars_Anchor",
+                "Mesh"
+            ]
+        },
+        {
+            "AppliesToSuperType": "Scooter",
+            "AppliesToType": "Bars",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+                "Left_BarEnd_Anchor",
+                "Left_Grip_Anchor",
+                "Right_BarEnd_Anchor",
+                "Right_Grip_Anchor",
+                "Mesh"
+            ],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "Scooter",
+            "AppliesToType": "Forks",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+                "FrontWheel_Anchor",
+                "FrontWheel_Anchor/Front_Left_Hub_Guard_Anchor",
+                "FrontWheel_Anchor/Front_Left_Peg_Anchor",
+                "FrontWheel_Anchor/Front_Right_Hub_Guard_Anchor",
+                "FrontWheel_Anchor/Front_Right_Peg_Anchor",
+                "Mesh"
+            ]
+        },
+        {
+            "AppliesToSuperType": "Scooter",
+            "AppliesToType": "Headset",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+                "Mesh",
+                "Stem_Anchor"
+            ],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "Scooter",
+            "AppliesToType": "Grip",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+            ],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "Scooter",
+            "AppliesToType": "Bar End",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+            ],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "Scooter",
+            "AppliesToType": "Wheel",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+            ],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "Scooter",
+            "AppliesToType": "Urethane",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+            ],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "Scooter",
+            "AppliesToType": "Griptape",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+            ],
+            "RequiredPatterns": []
+        }
+    ]
+}

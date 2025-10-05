@@ -33,6 +33,9 @@ namespace ContentTools.Editor
         private readonly Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
         private readonly Dictionary<string, bool> _selected = new Dictionary<string, bool>();
 
+        // NEW: foldout memory for the rules section grouped by SuperType
+        private readonly Dictionary<string, bool> _rulesSuperFoldouts = new Dictionary<string, bool>();
+
         private AddressableAssetSettings _settings;
         private string _buildLocation = string.Empty;
 
@@ -61,13 +64,12 @@ namespace ContentTools.Editor
             _settings = AddressableAssetSettingsDefaultObject.Settings;
             _buildLocation = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, DefaultBuildFolderRel);
 
-// If there isn't one saved yet, default to Assets/StreamingAssets/Addressables/Customization
+            // If there isn't one saved yet, default to Assets/StreamingAssets/Addressables/Customization
             if (string.IsNullOrWhiteSpace(_buildLocation))
             {
                 _buildLocation = DefaultBuildFolderRel; // keep as project-relative for UX
                 // Don't save yet—only persist when the user builds or explicitly saves settings
             }
-
 
             _packsFolder = FORCED_PACKS_FOLDER;
             EnsureFolderExists(_packsFolder);
@@ -222,12 +224,12 @@ namespace ContentTools.Editor
                         EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
                     }
                 }
-                
-                if(!string.IsNullOrEmpty(_buildLocation))
-                if (GUILayout.Button("Open", GUILayout.Width(60)))
-                {
-                    OpenBuildOutputFolder(_buildLocation);
-                }
+
+                if (!string.IsNullOrEmpty(_buildLocation))
+                    if (GUILayout.Button("Open", GUILayout.Width(60)))
+                    {
+                        OpenBuildOutputFolder(_buildLocation);
+                    }
             }
         }
 
@@ -286,6 +288,7 @@ namespace ContentTools.Editor
                 GUI.enabled = true;
             }
         }
+
         void EnsureWrapStyle()
         {
             if (_wrapLabel != null) return;
@@ -295,6 +298,7 @@ namespace ContentTools.Editor
                 richText = false
             };
         }
+
         /// Draw a wrapped line that adapts to the current window width.
         /// leftPadding lets you indent bullets under the header nicely.
         void DrawWrappedLine(string text, float leftPadding = 16f, float rightPadding = 8f)
@@ -316,6 +320,11 @@ namespace ContentTools.Editor
             r.width = contentWidth;
             EditorGUI.LabelField(r, gc, _wrapLabel);
         }
+
+        // Scroll position for the Part Hierarchy Rules panel
+        private Vector2 _rulesHierarchyScroll;
+// Tweak this if you want a taller/shorter panel
+        private const float RULES_HIERARCHY_MAX_HEIGHT = 320f;
         private void DrawRulesOverview()
         {
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
@@ -331,6 +340,7 @@ namespace ContentTools.Editor
                     return;
                 }
 
+                // --- SuperTypes ---
                 EditorGUILayout.LabelField("SuperTypes", _miniHeader);
                 if (_rules.SuperTypes != null && _rules.SuperTypes.Length > 0)
                     EditorGUILayout.LabelField(string.Join(", ", _rules.SuperTypes));
@@ -339,6 +349,7 @@ namespace ContentTools.Editor
 
                 EditorGUILayout.Space(3);
 
+                // --- Allowed Pairs ---
                 EditorGUILayout.LabelField("Allowed Pairs (SuperType → Types)", _miniHeader);
                 if (_rules.AllowedPairs != null && _rules.AllowedPairs.Count > 0)
                 {
@@ -348,19 +359,17 @@ namespace ContentTools.Editor
                         var types = (pair.Types != null && pair.Types.Length > 0)
                             ? string.Join(", ", pair.Types)
                             : "<none>";
-
-                        // was: EditorGUILayout.LabelField($"• {pair.SuperType} → {types}");
                         DrawWrappedLine($"• {pair.SuperType} → {types}", leftPadding: 16f);
                     }
                 }
                 else
                 {
-                    // was: EditorGUILayout.LabelField("<none>");
                     DrawWrappedLine("<none>", leftPadding: 16f);
                 }
 
                 EditorGUILayout.Space(3);
 
+                // --- Colors ---
                 EditorGUILayout.LabelField("Colors", _miniHeader);
                 if (_rules.Colors != null && _rules.Colors.Length > 0)
                     EditorGUILayout.LabelField(string.Join(", ", _rules.Colors));
@@ -369,30 +378,258 @@ namespace ContentTools.Editor
 
                 EditorGUILayout.Space(3);
 
-                EditorGUILayout.LabelField("Anchor Rules", _miniHeader);
-                if (_rules.AnchorRules != null && _rules.AnchorRules.Count > 0)
+                // === Part Hierarchy Rules (scrollable; foldable per SuperType → Type → Brand) ===
+                EditorGUILayout.LabelField("Part Hierarchy Rules", _miniHeader);
+
+                using (var sv = new EditorGUILayout.ScrollViewScope(
+                           _rulesHierarchyScroll, GUILayout.MaxHeight(RULES_HIERARCHY_MAX_HEIGHT)))
                 {
-                    foreach (var r in _rules.AnchorRules)
+                    _rulesHierarchyScroll = sv.scrollPosition;
+
+                    if (_rules.AnchorRules != null && _rules.AnchorRules.Count > 0)
                     {
-                        if (r == null) continue;
-                        string scope =
-                            $"{(string.IsNullOrEmpty(r.AppliesToSuperType) ? "*" : r.AppliesToSuperType)}/" +
-                            $"{(string.IsNullOrEmpty(r.AppliesToType) ? "*" : r.AppliesToType)}/" +
-                            $"{(string.IsNullOrEmpty(r.AppliesToBrand) ? "*" : r.AppliesToBrand)}";
-                        var req = (r.RequiredChildren != null && r.RequiredChildren.Length > 0)
-                            ? string.Join(", ", r.RequiredChildren)
-                            : "<none>";
-                        EditorGUILayout.LabelField($"• [{scope}] → {req}");
+                        var grouped = _rules.AnchorRules
+                            .Where(r => r != null)
+                            .GroupBy(r => string.IsNullOrEmpty(r.AppliesToSuperType) ? "*" : r.AppliesToSuperType)
+                            .OrderBy(g => g.Key);
+
+                        foreach (var g in grouped)
+                        {
+                            var superKey = g.Key;
+                            var foldKey = $"rules.super.{superKey}";
+                            if (!_rulesSuperFoldouts.ContainsKey(foldKey))
+                                _rulesSuperFoldouts[foldKey] = true;
+
+                            _rulesSuperFoldouts[foldKey] = EditorGUILayout.Foldout(
+                                _rulesSuperFoldouts[foldKey],
+                                $"{superKey}  ({g.Count()} rule{(g.Count() == 1 ? "" : "s")})",
+                                true);
+
+                            if (!_rulesSuperFoldouts[foldKey]) continue;
+
+                            // Group by Type under each SuperType
+                            EditorGUI.indentLevel++;
+                            var byType = g.GroupBy(r => string.IsNullOrEmpty(r.AppliesToType) ? "*" : r.AppliesToType)
+                                .OrderBy(x => x.Key);
+
+                            foreach (var typeGroup in byType)
+                            {
+                                var typeKey = typeGroup.Key;
+                                var typeFoldKey = $"{foldKey}.type.{typeKey}";
+                                if (!_rulesRuleFoldouts.ContainsKey(typeFoldKey))
+                                    _rulesRuleFoldouts[typeFoldKey] = true;
+
+                                //_rulesRuleFoldouts[typeFoldKey] = EditorGUILayout.Foldout(
+                                //    _rulesRuleFoldouts[typeFoldKey],
+                                //    $"[{superKey}/{typeKey}]",
+                                //    true);
+
+                                if (!_rulesRuleFoldouts[typeFoldKey]) continue;
+
+                                // List Brand-scoped rules under this Type
+                                EditorGUI.indentLevel++;
+                                foreach (var r in typeGroup.OrderBy(r => r.AppliesToBrand))
+                                {
+                                    string brandTok = string.IsNullOrEmpty(r.AppliesToBrand) ? "*" : r.AppliesToBrand;
+                                    string ruleFoldKey = $"{typeFoldKey}.brand.{brandTok}";
+                                    if (!_rulesRuleFoldouts.ContainsKey(ruleFoldKey))
+                                        _rulesRuleFoldouts[ruleFoldKey] = true;
+
+                                    using (new EditorGUILayout.HorizontalScope())
+                                    {
+                                        _rulesRuleFoldouts[ruleFoldKey] = EditorGUILayout.Foldout(
+                                            _rulesRuleFoldouts[ruleFoldKey],
+                                            $"[{superKey}_{typeKey}]",
+                                            true);
+                                    }
+
+                                    if (!_rulesRuleFoldouts[ruleFoldKey]) continue;
+
+                                    // Draw the hierarchy as a tree for this rule
+                                    EditorGUI.indentLevel++;
+                                    var tree = BuildRuleTree(r);
+                                    bool hasAny =
+                                        (r.RequiredChildren != null && r.RequiredChildren.Length > 0) ||
+                                        (r.RequiredPatterns != null && r.RequiredPatterns.Length > 0);
+
+                                    if (!hasAny)
+                                    {
+                                        EditorGUILayout.LabelField("└─ <none>", EditorStyles.miniLabel);
+                                    }
+                                    else
+                                    {
+                                        DrawRuleTree(tree);
+                                    }
+
+                                    EditorGUI.indentLevel--;
+                                }
+
+                                EditorGUI.indentLevel--;
+                            }
+
+                            EditorGUI.indentLevel--;
+                        }
                     }
-                }
-                else
-                {
-                    EditorGUILayout.LabelField("<none>");
+                    else
+                    {
+                        EditorGUILayout.LabelField("<none>");
+                    }
                 }
             }
         }
 
 
+
+// Remember per-rule foldouts (SuperType/Type/Brand)
+        private readonly Dictionary<string, bool> _rulesRuleFoldouts = new Dictionary<string, bool>();
+
+// Simple tree for showing RequiredChildren & Pattern scopes
+        private class RuleTreeNode
+        {
+            public string Name;
+
+            public SortedDictionary<string, RuleTreeNode> Children =
+                new SortedDictionary<string, RuleTreeNode>(StringComparer.Ordinal);
+
+            public List<string> Annotations = new List<string>(); // e.g., pattern summaries at this node
+            public bool IsLeaf;
+
+            public RuleTreeNode(string name)
+            {
+                Name = name;
+            }
+
+            public RuleTreeNode GetOrAdd(string key)
+            {
+                if (!Children.TryGetValue(key, out var n))
+                    Children[key] = n = new RuleTreeNode(key);
+                return n;
+            }
+        }
+
+        // Build a tree from one rule's RequiredChildren + RequiredPatterns
+        private RuleTreeNode BuildRuleTree(ContentValidationRules.AnchorRule r)
+        {
+            var root = new RuleTreeNode("<root>");
+
+            // Exact children (root-relative paths)
+            if (r.RequiredChildren != null)
+            {
+                foreach (var path in r.RequiredChildren)
+                {
+                    if (string.IsNullOrWhiteSpace(path)) continue;
+                    var parts = path.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                    var cur = root;
+                    for (int i = 0; i < parts.Length; i++)
+                    {
+                        cur = cur.GetOrAdd(parts[i]);
+                        if (i == parts.Length - 1) cur.IsLeaf = true;
+                    }
+                }
+            }
+
+            // Pattern summaries grouped by PathPrefix
+            if (r.RequiredPatterns != null)
+            {
+                foreach (var p in r.RequiredPatterns)
+                {
+                    if (p == null || string.IsNullOrEmpty(p.NameRegex)) continue;
+
+                    var summary =
+                        $"/{p.NameRegex}/ x{(p.Min == p.Max ? p.Min.ToString() : $"{p.Min}..{(p.Max == int.MaxValue ? "∞" : p.Max.ToString())}")} {(p.DirectChildrenOnly ? "[direct]" : "[deep]")}";
+
+                    if (string.IsNullOrEmpty(p.PathPrefix))
+                    {
+                        // annotate root
+                        root.Annotations.Add(summary);
+                    }
+                    else
+                    {
+                        var parts = p.PathPrefix.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+                        var cur = root;
+                        foreach (var seg in parts) cur = cur.GetOrAdd(seg);
+                        cur.Annotations.Add(summary);
+                    }
+                }
+            }
+
+            return root;
+        }
+
+// Draw the tree nicely with branch marks
+        private void DrawRuleTree(RuleTreeNode node, int indent = 0, bool isRoot = true)
+        {
+            // Show pattern annotations at this node (above its children)
+            if (!isRoot && (node.Annotations.Count > 0 || node.IsLeaf))
+            {
+                // line for the node itself
+                DrawTreeLine(node.Name, indent, isLast: false);
+            }
+
+            // If this node has annotations, render them beneath it
+            if (node.Annotations.Count > 0)
+            {
+                foreach (var a in node.Annotations)
+                    DrawTreeLine($"(pattern) {a}", indent + (isRoot ? 0 : 1), isLast: false, muted: true);
+            }
+
+            // Children
+            var kids = node.Children.Values.ToList();
+            for (int i = 0; i < kids.Count; i++)
+            {
+                var child = kids[i];
+                bool last = (i == kids.Count - 1);
+
+                // Render the child label with branch lines
+                string label = child.Name;
+                DrawTreeLine(label, indent + (isRoot ? 0 : 1), last);
+
+                // Recurse — draw annotations and grandchildren under this child
+                if (child.Annotations.Count > 0 || child.Children.Count > 0)
+                {
+                    // For grandchildren, increase indent
+                    DrawRuleTreeChildren(child, indent + (isRoot ? 0 : 1), last);
+                }
+            }
+        }
+
+// Helper to draw grandchildren with proper connector lines
+        private void DrawRuleTreeChildren(RuleTreeNode node, int indent, bool parentLast)
+        {
+            // annotations
+            foreach (var a in node.Annotations)
+                DrawTreeLine($"(pattern) {a}", indent + 1, isLast: false, muted: true);
+
+            // grandchildren
+            var kids = node.Children.Values.ToList();
+            for (int i = 0; i < kids.Count; i++)
+            {
+                var child = kids[i];
+                bool last = (i == kids.Count - 1);
+
+                DrawTreeLine(child.Name, indent + 1, last);
+                if (child.Annotations.Count > 0 || child.Children.Count > 0)
+                    DrawRuleTreeChildren(child, indent + 1, last);
+            }
+        }
+
+// Draw a single line with tree glyphs and indentation.
+// We keep this simple and robust in IMGUI.
+        private void DrawTreeLine(string text, int indent, bool isLast, bool muted = false)
+        {
+            // Build prefix like "│  " / "├─ " / "└─ "
+            string prefix = "";
+            if (indent > 0)
+            {
+                // The last-level connector:
+                prefix = (isLast ? "└─ " : "├─ ");
+                // Add padding for previous levels
+                prefix = new string(' ', (indent - 1) * 2) + prefix;
+            }
+
+            var style = muted ? EditorStyles.miniLabel : EditorStyles.label;
+            EditorGUILayout.LabelField(prefix + text, style);
+        }
 
 
         private void DrawPacksList()
@@ -870,70 +1107,70 @@ namespace ContentTools.Editor
             Repaint();
         }
 
-private void DrawItemIssuesUI(GameObject go, bool onlyValid)
-{
-    if (!go) return;
-    if (!_itemIssues.TryGetValue(go, out var issues) || issues == null) return;
-
-    int errorCount = issues.Count(i => i.severity == ContentPackValidator.Severity.Error);
-    int warnCount = issues.Count(i => i.severity == ContentPackValidator.Severity.Warning);
-
-    // Define colored styles for check and x marks
-    GUIStyle greenStyle = new GUIStyle(EditorStyles.miniBoldLabel);
-    greenStyle.normal.textColor = Color.green;
-
-    GUIStyle redStyle = new GUIStyle(EditorStyles.miniBoldLabel);
-    redStyle.normal.textColor = Color.red;
-
-    if (errorCount == 0 && warnCount == 0 && onlyValid)
-    {
-        GUILayout.Label("✓ Valid", greenStyle, GUILayout.Width(60));
-        return;
-    }
-    else if (onlyValid)
-    {
-        GUILayout.Label("✗ Invalid", redStyle, GUILayout.Width(60));
-        return;
-    }
-
-
-    using (new EditorGUILayout.HorizontalScope())
-    {
-        if (errorCount == 0 && warnCount == 0)
+        private void DrawItemIssuesUI(GameObject go, bool onlyValid)
         {
-            // GUILayout.Label("✓ Valid", greenStyle, GUILayout.Width(60));
-        }
-        else if (!onlyValid)
-        {
-            if (errorCount > 0)
-                GUILayout.Label($"Errors: {errorCount}", _errStyle, GUILayout.Width(120));
-            if (warnCount > 0)
-                GUILayout.Label($"Warnings: {warnCount}", _warnStyle, GUILayout.Width(140));
-        }
+            if (!go) return;
+            if (!_itemIssues.TryGetValue(go, out var issues) || issues == null) return;
 
-        GUILayout.FlexibleSpace();
-    }
+            int errorCount = issues.Count(i => i.severity == ContentPackValidator.Severity.Error);
+            int warnCount = issues.Count(i => i.severity == ContentPackValidator.Severity.Warning);
 
-    if (errorCount > 0 || warnCount > 0)
-    {
-        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
-        {
-            // 🔹 Add indentation here
-            GUILayout.Space(10); // adjust this for how much indent you want
+            // Define colored styles for check and x marks
+            GUIStyle greenStyle = new GUIStyle(EditorStyles.miniBoldLabel);
+            greenStyle.normal.textColor = Color.green;
 
-            foreach (var i in issues)
+            GUIStyle redStyle = new GUIStyle(EditorStyles.miniBoldLabel);
+            redStyle.normal.textColor = Color.red;
+
+            if (errorCount == 0 && warnCount == 0 && onlyValid)
             {
-                var style = i.severity == ContentPackValidator.Severity.Error ? _errStyle : _warnStyle;
+                GUILayout.Label("✓ Valid", greenStyle, GUILayout.Width(60));
+                return;
+            }
+            else if (onlyValid)
+            {
+                GUILayout.Label("✗ Invalid", redStyle, GUILayout.Width(60));
+                return;
+            }
 
-                using (new EditorGUILayout.HorizontalScope())
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (errorCount == 0 && warnCount == 0)
                 {
-                    GUILayout.Space(10); // indent bullet and text
-                    EditorGUILayout.LabelField("• " + i.message, style);
+                    // GUILayout.Label("✓ Valid", greenStyle, GUILayout.Width(60));
+                }
+                else if (!onlyValid)
+                {
+                    if (errorCount > 0)
+                        GUILayout.Label($"Errors: {errorCount}", _errStyle, GUILayout.Width(120));
+                    if (warnCount > 0)
+                        GUILayout.Label($"Warnings: {warnCount}", _warnStyle, GUILayout.Width(140));
+                }
+
+                GUILayout.FlexibleSpace();
+            }
+
+            if (errorCount > 0 || warnCount > 0)
+            {
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                {
+                    // 🔹 Add indentation here
+                    GUILayout.Space(10); // adjust this for how much indent you want
+
+                    foreach (var i in issues)
+                    {
+                        var style = i.severity == ContentPackValidator.Severity.Error ? _errStyle : _warnStyle;
+
+                        using (new EditorGUILayout.HorizontalScope())
+                        {
+                            GUILayout.Space(10); // indent bullet and text
+                            EditorGUILayout.LabelField("• " + i.message, style);
+                        }
+                    }
                 }
             }
         }
-    }
-}
 
 
         // ---------- Pack list + Addressables helpers ----------
@@ -965,7 +1202,6 @@ private void DrawItemIssuesUI(GameObject go, bool onlyValid)
                 var pack = AssetDatabase.LoadAssetAtPath<ContentPackDefinition>(path);
                 if (pack != null) _packs.Add(pack);
             }
-
 
             foreach (ContentPackDefinition pack in _packs)
             {
@@ -1067,10 +1303,14 @@ private void DrawItemIssuesUI(GameObject go, bool onlyValid)
             path = path.Replace("\\", "/");
             if (!Directory.Exists(path))
             {
-                try { Directory.CreateDirectory(path); }
+                try
+                {
+                    Directory.CreateDirectory(path);
+                }
                 catch (System.Exception ex)
                 {
-                    EditorUtility.DisplayDialog("Open Folder", $"Could not create folder:\n{path}\n\n{ex.Message}", "OK");
+                    EditorUtility.DisplayDialog("Open Folder", $"Could not create folder:\n{path}\n\n{ex.Message}",
+                        "OK");
                     return;
                 }
             }
@@ -1084,7 +1324,7 @@ private void DrawItemIssuesUI(GameObject go, bool onlyValid)
     EditorUtility.RevealInFinder(path); // Linux/editor support
 #endif
         }
-        
+
 // --- Thumbnail cache for icons to keep UI fast ---
         private readonly Dictionary<string, Texture2D> _iconThumbCache = new Dictionary<string, Texture2D>();
 
@@ -1106,7 +1346,7 @@ private void DrawItemIssuesUI(GameObject go, bool onlyValid)
         {
             if (prefab == null) return null;
 
-            
+
             string folder;
             var iconPath = ComputeIconPathForPrefab(prefab, out folder);
             if (string.IsNullOrEmpty(iconPath)) return null;
@@ -1124,11 +1364,12 @@ private void DrawItemIssuesUI(GameObject go, bool onlyValid)
             _iconThumbCache[iconPath] = tex;
             return tex;
         }
-        
-        
+
+
         static GUIStyle _wrapLabel;
 
-        private void DrawWrappedHelpBox(string text, float leftPadding = 6f, float rightPadding = 6f, float topPadding = 6f, float bottomPadding = 6f)
+        private void DrawWrappedHelpBox(string text, float leftPadding = 6f, float rightPadding = 6f,
+            float topPadding = 6f, float bottomPadding = 6f)
         {
             if (string.IsNullOrEmpty(text)) return;
 
@@ -1136,7 +1377,7 @@ private void DrawItemIssuesUI(GameObject go, bool onlyValid)
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
 
             // Calculate width inside the helpbox
-            float fullWidth = EditorGUIUtility.currentViewWidth;          // the window’s usable width
+            float fullWidth = EditorGUIUtility.currentViewWidth; // the window’s usable width
             float contentWidth = fullWidth - leftPadding - rightPadding - 20f; // a bit of slack for margins/scrollbars
 
             // Measure required height for the wrapped text
@@ -1145,8 +1386,10 @@ private void DrawItemIssuesUI(GameObject go, bool onlyValid)
 
             // Reserve and draw
             var r = GUILayoutUtility.GetRect(contentWidth, height, _wrapLabel, GUILayout.ExpandWidth(true));
-            r.x += leftPadding; r.width = contentWidth;
-            r.y += topPadding;  r.height = height;
+            r.x += leftPadding;
+            r.width = contentWidth;
+            r.y += topPadding;
+            r.height = height;
 
             EditorGUI.LabelField(r, gc, _wrapLabel);
 
@@ -1213,7 +1456,7 @@ private void DrawItemIssuesUI(GameObject go, bool onlyValid)
                 // The object field
                 itemRef = (GameObject)EditorGUILayout.ObjectField(itemRef, typeof(GameObject), false);
             }
-            
+
             return itemRef;
         }
 
@@ -1284,10 +1527,10 @@ private void DrawItemIssuesUI(GameObject go, bool onlyValid)
                 EditorUtility.SetDirty(pack);
                 AssetDatabase.SaveAssets();
             }
-            
+
             // 3) Push the icons into the "{PackName}_Icons" addressable group
             pack.SyncToAddressables();
-            
+
             ClearIconThumbsForPack(pack);
             Repaint();
 

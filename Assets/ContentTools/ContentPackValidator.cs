@@ -1,8 +1,11 @@
 #if UNITY_EDITOR
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace ContentTools.Editor
 {
@@ -78,32 +81,198 @@ namespace ContentTools.Editor
             string color     = parts[^1];
             string brand     = string.Join("_", parts.Skip(2).Take(parts.Length - 3)); // not validated; usable for anchors
 
+// ... inside ValidateItem(GameObject go, ContentValidationRules rules, List<Issue> buffer = null)
+
             if (rules != null)
             {
                 bool superKnown = rules.IsAllowed(superType, rules.SuperTypes) ||
                                   rules.AllowedPairs.Exists(p => p.SuperType == superType);
 
                 if (!superKnown)
-                    issues.Add(new Issue { severity = Severity.Error, message = $"{go.name}: unknown SuperType '{superType}'", context = go });
+                    issues.Add(new Issue
+                    {
+                        severity = Severity.Error, message = $"{go.name}: unknown SuperType '{superType}'", context = go
+                    });
 
                 if (!rules.IsAllowedPair(superType, type))
-                    issues.Add(new Issue { severity = Severity.Error, message = $"{go.name}: invalid Type '{type}' for SuperType '{superType}'", context = go });
+                    issues.Add(new Issue
+                    {
+                        severity = Severity.Error,
+                        message = $"{go.name}: invalid Type '{type}' for SuperType '{superType}'", context = go
+                    });
 
                 if (rules.Colors != null && rules.Colors.Length > 0 && !rules.IsAllowed(color, rules.Colors))
-                    issues.Add(new Issue { severity = Severity.Error, message = $"{go.name}: unknown Color '{color}'", context = go });
+                    issues.Add(new Issue
+                        { severity = Severity.Error, message = $"{go.name}: unknown Color '{color}'", context = go });
 
                 foreach (var rule in rules.RulesFor(superType, type, brand))
                 {
-                    if (rule.RequiredChildren == null) continue;
-                    foreach (var req in rule.RequiredChildren)
+                    // 1) Exact child requirements
+                    if (rule.RequiredChildren != null)
                     {
-                        if (string.IsNullOrWhiteSpace(req)) continue;
-                        if (go.transform.Find(req) == null)
-                            issues.Add(new Issue { severity = Severity.Error, message = $"{go.name}: missing child '{req}'", context = go });
+                        foreach (var req in rule.RequiredChildren)
+                        {
+                            if (string.IsNullOrWhiteSpace(req)) continue;
+                            if (go.transform.Find(req) == null)
+                                issues.Add(new Issue
+                                {
+                                    severity = Severity.Error,
+                                    message = $"{go.name}: missing child '{req}'",
+                                    context = go
+                                });
+                        }
+                    }
+
+                    // 2) Pattern-based requirements (regex + counts)
+                    if (rule.RequiredPatterns != null)
+                    {
+                        foreach (var pat in rule.RequiredPatterns)
+                        {
+                            if (pat == null || string.IsNullOrEmpty(pat.NameRegex)) continue;
+
+                            // resolve search root for this pattern
+                            Transform searchRoot = go.transform;
+                            if (!string.IsNullOrEmpty(pat.PathPrefix))
+                            {
+                                var sub = go.transform.Find(pat.PathPrefix);
+                                if (sub == null)
+                                {
+                                    issues.Add(new Issue
+                                    {
+                                        severity = Severity.Error,
+                                        message =
+                                            $"{go.name}: missing subtree '{pat.PathPrefix}' required for pattern '{pat.NameRegex}'",
+                                        context = go
+                                    });
+                                    continue;
+                                }
+
+                                searchRoot = sub;
+                            }
+
+                            IEnumerable<Transform> candidates = pat.DirectChildrenOnly
+                                ? searchRoot.Cast<Transform>() // immediate children
+                                : searchRoot.GetComponentsInChildren<Transform>(true); // recursive
+                            if (!pat.DirectChildrenOnly)
+                                candidates = candidates.Where(t => t != searchRoot);
+
+                            int matches = 0;
+                            foreach (var t in candidates)
+                                if (Regex.IsMatch(t.name, pat.NameRegex))
+                                    matches++;
+
+                            int min = Math.Max(0, pat.Min);
+                            int max = pat.Max <= 0 ? int.MaxValue : pat.Max;
+                            if (matches < min || matches > max)
+                            {
+                                string where = string.IsNullOrEmpty(pat.PathPrefix) ? "<root>" : pat.PathPrefix;
+                                issues.Add(new Issue
+                                {
+                                    severity = Severity.Error,
+                                    message =
+                                        $"{go.name}: expected {min}..{(max == int.MaxValue ? "∞" : max.ToString())} child(ren) matching /{pat.NameRegex}/ under {where}, found {matches}.",
+                                    context = go
+                                });
+                            }
+                        }
+                    }
+
+                    // 3) Forbid unexpected children under validated scope(s)
+                    if (1 == 1)
+                    {
+                        // Build a quick look-up of exact required names (root-relative)
+                        var requiredExact = new HashSet<string>(rule.RequiredChildren ?? Array.Empty<string>());
+
+                        // Group patterns by scope so we can evaluate “extras” once per scope.
+                        // Key = (PathPrefix, DirectChildrenOnly)
+                        var scopeMap = new Dictionary<(string path, bool direct), List<Regex>>();
+                        if (rule.RequiredPatterns != null)
+                        {
+                            foreach (var pat in rule.RequiredPatterns)
+                            {
+                                if (pat == null || string.IsNullOrEmpty(pat.NameRegex)) continue;
+                                var key = (pat.PathPrefix ?? string.Empty, pat.DirectChildrenOnly);
+                                if (!scopeMap.TryGetValue(key, out var list))
+                                {
+                                    list = new List<Regex>();
+                                    scopeMap[key] = list;
+                                }
+                                list.Add(new Regex(pat.NameRegex));
+                            }
+                        }
+
+                        // 🔹 Derive scopes from RequiredChildren so nested paths are enforced
+                        // e.g., "FrontWheel_Anchor/Front_Left_Peg_Anchor" -> scope "FrontWheel_Anchor" (direct children only)
+                        foreach (var req in requiredExact)
+                        {
+                            var slash = req.LastIndexOf('/');
+                            if (slash > 0)
+                            {
+                                var prefix = req.Substring(0, slash);
+                                var key = (prefix, true);
+                                if (!scopeMap.ContainsKey(key))
+                                    scopeMap[key] = new List<Regex>(); // no patterns; only exact names allowed here
+                            }
+                        }
+
+                        // Include a default root scope if there are exact root children but no patterns for root
+                        if ((rule.RequiredChildren?.Any(s => !s.Contains("/")) ?? false) &&
+                            !scopeMap.ContainsKey((string.Empty, true)))
+                        {
+                            scopeMap[(string.Empty, true)] = new List<Regex>(); // only exact names allowed at root
+                        }
+
+                        foreach (var kv in scopeMap)
+                        {
+                            string pathPrefix = kv.Key.path;
+                            bool directOnly = kv.Key.direct;
+                            var regexes = kv.Value;
+
+                            // resolve scope root
+                            Transform scopeRoot = go.transform;
+                            if (!string.IsNullOrEmpty(pathPrefix))
+                            {
+                                var sub = go.transform.Find(pathPrefix);
+                                if (sub == null)
+                                {
+                                    // Missing subtree is already reported above during pattern checks; skip.
+                                    continue;
+                                }
+                                scopeRoot = sub;
+                            }
+
+                            // collect candidates to test for "extra"
+                            IEnumerable<Transform> candidates = directOnly
+                                ? scopeRoot.Cast<Transform>()
+                                : scopeRoot.GetComponentsInChildren<Transform>(true).Where(t => t != scopeRoot);
+
+                            foreach (var t in candidates)
+                            {
+                                // 1) allow if exact root-relative path is in RequiredChildren
+                                string rootRelative = string.IsNullOrEmpty(pathPrefix)
+                                    ? t.name
+                                    : $"{pathPrefix}/{t.name}";
+                                bool allowedByExact = requiredExact.Contains(rootRelative);
+
+                                // 2) allow if it matches ANY pattern for this scope
+                                bool allowedByPattern = regexes.Any(rx => rx.IsMatch(t.name));
+
+                                if (!allowedByExact && !allowedByPattern)
+                                {
+                                    string scope = string.IsNullOrEmpty(pathPrefix) ? "<root>" : pathPrefix;
+                                    issues.Add(new Issue
+                                    {
+                                        severity = Severity.Error,
+                                        message = $"{go.name}: unexpected child '{rootRelative}' under {scope}.",
+                                        context = t.gameObject
+                                    });
+                                }
+                            }
+                        }
                     }
                 }
             }
-
+            
             return issues;
         }
 

@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-namespace ContentTools.Editor
+namespace ContentTools
 {
     /// <summary>
     /// Project-wide configuration for validating item names and required anchors.
@@ -33,17 +33,39 @@ namespace ContentTools.Editor
         public List<SuperTypeTypes> AllowedPairs = new();
 
         [Serializable]
-        public class AnchorRule
+        public class ChildPattern
         {
-            [Tooltip("Leave blank to wildcard")]
-            public string AppliesToSuperType;   // optional
-            public string AppliesToType;        // optional
-            public string AppliesToBrand;       // optional (Brand not validated)
+            [Tooltip("Optional path under the prefab root to search (use '/' like Transform.Find). Leave empty for root.")]
+            public string PathPrefix;
 
-            [Tooltip("Exact child names under the prefab root that must exist")]
-            public string[] RequiredChildren;   // e.g. "Bars_Anchor", "StemBolt_Anchor_1", ...
+            [Tooltip("Regex that matching child names must satisfy, e.g. ^StemBolt_Anchor_\\d+$")]
+            public string NameRegex;
+
+            [Tooltip("Minimum number of matches required")]
+            public int Min = 1;
+
+            [Tooltip("Maximum number of matches allowed (int.MaxValue = no upper bound)")]
+            public int Max = int.MaxValue;
+
+            [Tooltip("If true, only immediate children of PathPrefix are considered. Otherwise, search recursively.")]
+            public bool DirectChildrenOnly = true;
         }
 
+        [Serializable]
+        public class AnchorRule
+        {
+            public string AppliesToSuperType;
+            public string AppliesToType;
+            public string AppliesToBrand;
+
+            // already exists (exact names)
+            public string[] RequiredChildren;
+
+            // 🔹 NEW: pattern-based requirements
+            public ChildPattern[] RequiredPatterns;
+            
+            private bool ForbidUnexpectedChildren = true;
+        }
         [Header("Anchor requirements")]
         public List<AnchorRule> AnchorRules = new();
 
