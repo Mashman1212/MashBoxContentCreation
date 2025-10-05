@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using System;
 using System.Linq;
 using System.Collections.Generic;
 using UnityEditor;
@@ -9,6 +10,7 @@ using System.IO;
 
 // pull in the icon capture utility
 using Content_Icon_Capture.Editor;
+using Object = UnityEngine.Object;
 
 namespace ContentTools.Editor
 {
@@ -53,8 +55,16 @@ namespace ContentTools.Editor
         private void OnEnable()
         {
             _settings = AddressableAssetSettingsDefaultObject.Settings;
-            _buildLocation = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
+            _buildLocation = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, DefaultBuildFolderRel );
 
+// If there isn't one saved yet, default to Assets/StreamingAssets/Addressables/Customization
+            if (string.IsNullOrWhiteSpace(_buildLocation))
+            {
+                _buildLocation = DefaultBuildFolderRel; // keep as project-relative for UX
+                // Don't save yet—only persist when the user builds or explicitly saves settings
+            }
+            
+            
             _packsFolder = FORCED_PACKS_FOLDER;
             EnsureFolderExists(_packsFolder);
 
@@ -107,6 +117,26 @@ namespace ContentTools.Editor
                 Debug.LogWarning("No ContentValidationRules asset found. Create one via Tools → MashBox → Create Prefilled Validation Rules, or Assets → Create → Content → Validation Rules.");
             }
         }
+        
+        private const string DefaultBuildFolderRel = "Assets/StreamingAssets/Addressables/Customization";
+
+        private static string ToProjectAbsolutePath(string path)
+        {
+            // Accept absolute paths as-is
+            if (Path.IsPathRooted(path)) return path.Replace("\\", "/");
+
+            // Accept project-relative "Assets/..." paths
+            if (path.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase) ||
+                path.Equals("Assets", StringComparison.OrdinalIgnoreCase))
+            {
+                var projectRoot = Application.dataPath; // "<project>/Assets"
+                var abs = Path.Combine(Path.GetDirectoryName(projectRoot) ?? "", path.Replace("/", Path.DirectorySeparatorChar.ToString()));
+                return Path.GetFullPath(abs).Replace("\\", "/");
+            }
+
+            // Anything else must be absolute; return as-is (will fail validation)
+            return path.Replace("\\", "/");
+        }
 
         private void OnGUI()
         {
@@ -145,7 +175,16 @@ namespace ContentTools.Editor
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField("Build Output Folder", GUILayout.Width(140));
+                using (new EditorGUILayout.VerticalScope())
+                {
+                    EditorGUILayout.LabelField("Build Output Folder", GUILayout.Width(140));
+
+                    if (string.IsNullOrWhiteSpace(_buildLocation))
+                    {
+                        EditorGUILayout.HelpBox("Set a build output folder before building.", MessageType.Warning);
+                    }
+                }
+
                 EditorGUI.BeginChangeCheck();
                 _buildLocation = EditorGUILayout.TextField(_buildLocation);
                 if (EditorGUI.EndChangeCheck())
@@ -299,7 +338,9 @@ namespace ContentTools.Editor
 
                 if (_packs.Count == 0)
                 {
-                    EditorGUILayout.HelpBox("No ContentPackDefinition assets found.\nClick “Create Pack” above or create assets under Assets/ContentPacks.", MessageType.Info);
+                    EditorGUILayout.HelpBox(
+                        "No ContentPackDefinition assets found.\nClick “Create Pack” above or create assets under Assets/ContentPacks.",
+                        MessageType.Info);
                     return;
                 }
 
@@ -327,36 +368,88 @@ namespace ContentTools.Editor
                                 DeletePack(p);
                         }
 
-        
-                        if(_foldouts.ContainsKey(key))
-                        if (_foldouts[key])
-                        {
-                            
-                            // --- Drag & Drop zone always visible for convenience ---
-                            var dropRect = GUILayoutUtility.GetRect(0, 44, GUILayout.ExpandWidth(true));
-                            GUI.Box(dropRect, "Drag prefabs here", _dropZoneStyle);
-                            HandleDragAndDropForPack(p, dropRect);
 
-                            EditorGUI.indentLevel++;
-                            // Items list with inline validation
-                            if (p._items != null && p._items.Count > 0)
+                        if (_foldouts.ContainsKey(key))
+                            if (_foldouts[key])
                             {
-                                foreach (var go in p._items)
+
+                                // --- Drag & Drop zone always visible for convenience ---
+                                var dropRect = GUILayoutUtility.GetRect(0, 20, GUILayout.ExpandWidth(true));
+                                GUI.Box(dropRect, "Drag prefabs here", _dropZoneStyle);
+                                HandleDragAndDropForPack(p, dropRect);
+
+                                EditorGUI.indentLevel++;
+                                // Items list with inline validation
+// NEW: Clickable ❌ per item (supports Undo, cleans validation cache)
+                                if (p._items != null && p._items.Count > 0)
                                 {
-                                    using (new EditorGUILayout.HorizontalScope())
+                                    // Use for-loop so we can safely remove by index
+                                    for (int i = 0; i < p._items.Count; i++)
                                     {
-                                        EditorGUILayout.ObjectField(go, typeof(GameObject), false);
-                                        GUILayout.FlexibleSpace();
+                                        var go = p._items[i];
+
+                                        using (new EditorGUILayout.HorizontalScope())
+                                        {
+                                            // Object field (read-only presentation but still shows ping/select, keep editable if you prefer)
+                                            EditorGUI.BeginChangeCheck();
+                                            var next = (GameObject)EditorGUILayout.ObjectField(go, typeof(GameObject),
+                                                false);
+
+                                            // Spacer
+                                            //GUILayout.FlexibleSpace();
+
+                                            // Remove button
+                                            if (GUILayout.Button("X", GUILayout.Width(26)))
+                                            {
+                                                Undo.RecordObject(p, "Remove Item From Pack");
+
+                                                // Remove from pack
+                                                p._items.RemoveAt(i);
+
+                                                // Keep the validation map tidy
+                                                if (go != null && _itemIssues.ContainsKey(go))
+                                                    _itemIssues.Remove(go);
+
+                                                EditorUtility.SetDirty(p);
+                                                AssetDatabase.SaveAssets();
+
+                                                // Adjust index since we removed current item
+                                                i--;
+
+                                                // Exit GUI so Repaint doesn't clash with changed layout
+                                                Repaint();
+                                                GUIUtility.ExitGUI();
+                                            }
+                                            else if (EditorGUI.EndChangeCheck())
+                                            {
+                                                // If user changed the reference in-place, update and revalidate
+                                                Undo.RecordObject(p, "Change Pack Item");
+                                                p._items[i] = next;
+
+                                                if (next != null)
+                                                    _itemIssues[next] = ContentPackValidator.ValidateItem(next, _rules);
+
+                                                if (go != null && go != next && _itemIssues.ContainsKey(go))
+                                                    _itemIssues.Remove(go);
+
+                                                EditorUtility.SetDirty(p);
+                                                AssetDatabase.SaveAssets();
+                                                Repaint();
+                                            }
+                                        }
+
+                                        // Draw issues under the row (skip if item was deleted above)
+                                        if (i >= 0 && i < p._items.Count)
+                                            DrawItemIssuesUI(p._items[i]);
                                     }
-                                    DrawItemIssuesUI(go);
                                 }
+                                else
+                                {
+                                    EditorGUILayout.LabelField("<no items>", EditorStyles.miniLabel);
+                                }
+
+                                EditorGUI.indentLevel--;
                             }
-                            else
-                            {
-                                EditorGUILayout.LabelField("<no items>", EditorStyles.miniLabel);
-                            }
-                            EditorGUI.indentLevel--;
-                        }
                     }
                 }
             }
@@ -413,6 +506,45 @@ namespace ContentTools.Editor
                 }
             }
         }
+        
+        private bool EnsureValidBuildFolder(out string error)
+        {
+            error = null;
+
+            if (string.IsNullOrWhiteSpace(_buildLocation))
+            {
+                error = "No build output folder set.";
+                return false;
+            }
+
+            // Normalize slashes
+            _buildLocation = _buildLocation.Replace("\\", "/");
+
+            // Must be an absolute path
+            if (!Path.IsPathRooted(_buildLocation))
+            {
+                error = $"Build output folder must be an absolute path:\n{_buildLocation}";
+                return false;
+            }
+
+            try
+            {
+                if (!Directory.Exists(_buildLocation))
+                    Directory.CreateDirectory(_buildLocation);
+
+                // Verify write access with a quick temp file probe
+                var probe = Path.Combine(_buildLocation, ".write_probe.tmp");
+                File.WriteAllText(probe, "ok");
+                File.Delete(probe);
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                error = $"Build output folder is not writable:\n{_buildLocation}\n\n{ex.Message}";
+                return false;
+            }
+        }
+
 
         private void BuildPacks(List<ContentPackDefinition> list, bool cleanMissing)
         {
@@ -427,6 +559,14 @@ namespace ContentTools.Editor
                 return;
             }
 
+            
+            string buildErr;
+            if (!EnsureValidBuildFolder(out buildErr))
+            {
+                EditorUtility.DisplayDialog("Invalid Build Output Folder", buildErr, "OK");
+                return;
+            }
+            
             RefreshPacks();
 
             if (cleanMissing)
@@ -660,7 +800,7 @@ namespace ContentTools.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            EditorGUIUtility.PingObject(asset);
+            //EditorGUIUtility.PingObject(asset);
             RefreshPacks();
         }
 
