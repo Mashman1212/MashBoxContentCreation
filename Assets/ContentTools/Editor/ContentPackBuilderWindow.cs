@@ -84,6 +84,10 @@ namespace ContentTools.Editor
         private void OnProjectChanged()
         {
             RevalidateAllItems();
+            foreach (ContentPackDefinition pack in _packs)
+            {
+                pack.RemoveMissingReferences();
+            }
             Repaint();
         }
 
@@ -210,8 +214,6 @@ namespace ContentTools.Editor
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField("Pack Definitions Folder", GUILayout.Width(180));
-                EditorGUILayout.LabelField(FORCED_PACKS_FOLDER, EditorStyles.miniLabel);
                 if (!AssetDatabase.IsValidFolder(FORCED_PACKS_FOLDER))
                 {
                     if (GUILayout.Button("Create Folder", GUILayout.Width(110)))
@@ -338,14 +340,13 @@ namespace ContentTools.Editor
 
                 if (_packs.Count == 0)
                 {
-                    EditorGUILayout.HelpBox(
-                        "No ContentPackDefinition assets found.\nClick “Create Pack” above or create assets under Assets/ContentPacks.",
-                        MessageType.Info);
+
                     return;
                 }
 
-                foreach (var p in _packs)
+                for (int j = 0; j < _packs.Count; j++)
                 {
+                    var p = _packs[j];
                     if (p == null) continue;
                     var key = AssetDatabase.GetAssetPath(p);
                     if (string.IsNullOrEmpty(key)) continue;
@@ -361,8 +362,8 @@ namespace ContentTools.Editor
                             _foldouts[key] = EditorGUILayout.Foldout(_foldouts[key], p.name, true);
                             GUILayout.FlexibleSpace();
 
-                            if (GUILayout.Button("Ping", GUILayout.Width(60)))
-                                EditorGUIUtility.PingObject(p);
+                            //if (GUILayout.Button("Ping", GUILayout.Width(60)))
+                            //    EditorGUIUtility.PingObject(p);
 
                             if (GUILayout.Button("Delete", GUILayout.Width(70)))
                                 DeletePack(p);
@@ -380,7 +381,6 @@ namespace ContentTools.Editor
 
                                 EditorGUI.indentLevel++;
                                 // Items list with inline validation
-// NEW: Clickable ❌ per item (supports Undo, cleans validation cache)
                                 if (p._items != null && p._items.Count > 0)
                                 {
                                     // Use for-loop so we can safely remove by index
@@ -390,6 +390,11 @@ namespace ContentTools.Editor
 
                                         using (new EditorGUILayout.HorizontalScope())
                                         {
+                                            
+                                            // Draw issues under the row (skip if item was deleted above)
+                                            if (i >= 0 && i < p._items.Count)
+                                                DrawItemIssuesUI(p._items[i],true);
+                                            
                                             // Object field (read-only presentation but still shows ping/select, keep editable if you prefer)
                                             EditorGUI.BeginChangeCheck();
                                             var next = (GameObject)EditorGUILayout.ObjectField(go, typeof(GameObject),
@@ -416,6 +421,9 @@ namespace ContentTools.Editor
                                                 // Adjust index since we removed current item
                                                 i--;
 
+                                                
+                                                p.SyncToAddressables();
+                                                p.SyncToAddressables();
                                                 // Exit GUI so Repaint doesn't clash with changed layout
                                                 Repaint();
                                                 GUIUtility.ExitGUI();
@@ -436,11 +444,12 @@ namespace ContentTools.Editor
                                                 AssetDatabase.SaveAssets();
                                                 Repaint();
                                             }
+                                            
                                         }
 
                                         // Draw issues under the row (skip if item was deleted above)
                                         if (i >= 0 && i < p._items.Count)
-                                            DrawItemIssuesUI(p._items[i]);
+                                            DrawItemIssuesUI(p._items[i],false);
                                     }
                                 }
                                 else
@@ -580,7 +589,11 @@ namespace ContentTools.Editor
                     Undo.RecordObject(p, "Clean Missing Items");
                     p._items.RemoveAll(x => x == null);
                     if (p._items.Count != before)
+                    {
                         EditorUtility.SetDirty(p);
+                        p.SyncToAddressables();
+                    }
+                      
                 }
                 AssetDatabase.SaveAssets();
             }
@@ -732,6 +745,8 @@ namespace ContentTools.Editor
 
                         // validate on add
                         _itemIssues[assetGo] = ContentPackValidator.ValidateItem(assetGo, _rules);
+                        
+                        pack.SyncToAddressables();
                     }
 
                     EditorUtility.SetDirty(pack);
@@ -752,7 +767,7 @@ namespace ContentTools.Editor
             Repaint();
         }
 
-        private void DrawItemIssuesUI(GameObject go)
+        private void DrawItemIssuesUI(GameObject go, bool onlyValid)
         {
             if (!go) return;
             if (!_itemIssues.TryGetValue(go, out var issues) || issues == null) return;
@@ -760,13 +775,23 @@ namespace ContentTools.Editor
             int errorCount = issues.Count(i => i.severity == ContentPackValidator.Severity.Error);
             int warnCount  = issues.Count(i => i.severity == ContentPackValidator.Severity.Warning);
 
+            if (errorCount == 0 && warnCount == 0 && onlyValid)
+            {
+                 GUILayout.Label("✓ Valid", EditorStyles.miniBoldLabel, GUILayout.Width(60));
+                 return;
+            }
+            else if (onlyValid)
+            {
+                return;
+            }
+            
             using (new EditorGUILayout.HorizontalScope())
             {
                 if (errorCount == 0 && warnCount == 0)
                 {
-                    GUILayout.Label("✓ Valid", EditorStyles.miniBoldLabel, GUILayout.Width(60));
+                   // GUILayout.Label("✓ Valid", EditorStyles.miniBoldLabel, GUILayout.Width(60));
                 }
-                else
+                else if(!onlyValid)
                 {
                     if (errorCount > 0)
                         GUILayout.Label($"Errors: {errorCount}", _errStyle, GUILayout.Width(120));
@@ -800,6 +825,7 @@ namespace ContentTools.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
+            asset.SyncToAddressables();
             //EditorGUIUtility.PingObject(asset);
             RefreshPacks();
         }

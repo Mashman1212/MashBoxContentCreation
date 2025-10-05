@@ -30,6 +30,26 @@ namespace ContentTools
             new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
                 { "bean" }; // ignore "Bean" per your examples; edit as you like
 
+#if UNITY_EDITOR
+        // Detect if this is an Asset Import Worker process. Use reflection to support multiple Unity versions.
+        private static bool IsAssetImportWorkerProcess()
+        {
+            var t = typeof(UnityEditor.AssetDatabase);
+            var mi = t.GetMethod("IsAssetImportWorkerProcess",
+                System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+            if (mi != null)
+            {
+                try { return (bool)mi.Invoke(null, null); } catch { }
+            }
+
+            // Fallback heuristic: treat compile/update as unsafe for AssetDatabase mutations
+            if (UnityEditor.EditorApplication.isCompiling || UnityEditor.EditorApplication.isUpdating)
+                return true;
+
+            return false;
+        }
+#endif
+
         private static IEnumerable<string> LabelsFromAssetName(string name)
         {
             if (string.IsNullOrEmpty(name)) yield break;
@@ -47,10 +67,17 @@ namespace ContentTools
         public void OnValidate()
         {
             _packName = name;
-            SyncToAddressables();
+
+#if UNITY_EDITOR
             if (!autoSyncOnValidate) return;
             if (Application.isPlaying) return; // don't mutate Addressables in play mode
             if (_syncInProgress) return; // currently syncing from a previous call
+
+            // Bail out if editor is busy importing/compiling or we're in an import worker
+            if (UnityEditor.EditorApplication.isCompiling ||
+                UnityEditor.EditorApplication.isUpdating ||
+                IsAssetImportWorkerProcess())
+                return;
 
             // Only schedule one sync tick; we'll clear the flag when it runs.
             if (_syncScheduled) return;
@@ -64,6 +91,13 @@ namespace ContentTools
 
                 try
                 {
+                    // Double-check just before running
+                    if (UnityEditor.EditorApplication.isCompiling ||
+                        UnityEditor.EditorApplication.isUpdating ||
+                        IsAssetImportWorkerProcess() ||
+                        Application.isPlaying)
+                        return;
+
                     SyncToAddressables();
                 }
                 catch (System.Exception ex)
@@ -71,11 +105,23 @@ namespace ContentTools
                     Debug.LogError($"[{nameof(ContentPackDefinition)}] Auto-sync exception:\n{ex}");
                 }
             };
+#endif
         }
 
         [ContextMenu("Addressables/Sync Now")]
         public void SyncToAddressables()
         {
+
+#if UNITY_EDITOR
+            // Never mutate Addressables from import worker / compile / update / playmode
+            if (IsAssetImportWorkerProcess() ||
+                UnityEditor.EditorApplication.isCompiling ||
+                UnityEditor.EditorApplication.isUpdating ||
+                Application.isPlaying)
+            {
+                return;
+            }
+#endif
             _packName = this.name;
             //if (_syncInProgress) return;
             _syncInProgress = true;
@@ -88,10 +134,16 @@ namespace ContentTools
                     return;
                 }
 
+                if (string.IsNullOrEmpty(PackName))
+                {
+                    Debug.LogError("Pack name is empty; cannot sync.");
+                    return;
+                }
+
                 // Decide which group name to use
                 string groupName = PackName;
 
-// Ensure group exists (with the correct name) and has a BundledAssetGroupSchema
+                // Ensure group exists (with the correct name) and has a BundledAssetGroupSchema
                 var group = settings.FindGroup(groupName);
                 if (group == null)
                 {
@@ -117,31 +169,33 @@ namespace ContentTools
                     {
                         settings.RemoveGroup(group);
                         group = settings.CreateGroup(
-                            groupName, false, false, false, null,
+                            groupName,
+                            setAsDefaultGroup: false,
+                            readOnly: false,
+                            postEvent: false,
+                            schemasToCopy: null,
                             typeof(UnityEditor.AddressableAssets.Settings.GroupSchemas.BundledAssetGroupSchema)
                         );
                     }
-                    // (If it had entries you’d migrate them here; usually new packs won’t.)
                 }
 
-// Ensure schema and apply your required settings/paths
-                var schema =
-                    group.GetSchema<UnityEditor.AddressableAssets.Settings.GroupSchemas.BundledAssetGroupSchema>();
+                // Ensure schema exists and tweak defaults if needed
+                var schema = group.GetSchema<BundledAssetGroupSchema>();
                 if (schema == null)
-                    schema = group
-                        .AddSchema<UnityEditor.AddressableAssets.Settings.GroupSchemas.BundledAssetGroupSchema>();
-
-// Build Path: Content/[BuildTarget]
+                {
+                    schema = group.AddSchema<BundledAssetGroupSchema>();
+                }
+                
+                // ---- Configure schema to match your screenshot ----
                 var prof = settings.profileSettings;
+
+                // Build Path: Content/[BuildTarget]
                 string buildVar = EnsureProfileVar(prof, "Content_BuildPath", "Content/[BuildTarget]");
                 schema.BuildPath.SetVariableByName(settings, buildVar);
 
-// Load Path: {Application.streamingAssetsPath}/Addressables/Customization
-                string loadVar = EnsureProfileVar(prof, "Customization_LoadPath",
-                    "{Application.streamingAssetsPath}/Addressables/Customization");
+                // Load Path: {Application.streamingAssetsPath}/Addressables/Customization
+                string loadVar = EnsureProfileVar(prof, "Customization_LoadPath", "{Application.streamingAssetsPath}/Addressables/Customization");
                 schema.LoadPath.SetVariableByName(settings, loadVar);
-
-
 
                 // Common settings (attempt when available; reflection keeps this version-agnostic)
                 SetEnumIfExists(schema, "Compression", "LZ4");
@@ -153,12 +207,11 @@ namespace ContentTools
                 SetBoolIfExists(schema, "IncludeGUIDInCatalog", true);
                 SetBoolIfExists(schema, "IncludeLabelsInCatalog", true);
                 SetEnumIfExists(schema, "BundleMode", "PackTogether");
-                
                 SetEnumIfExists(schema, "BundleNaming", "Filename", "FileName", "NoHash");
                 SetEnumIfExists(schema, "InternalIdNamingMode", "Filename", "FileName");
                 SetEnumIfExists(schema, "InternalAssetNamingMode", "Filename", "FileName");
 
-                UnityEditor.EditorUtility.SetDirty(schema);
+UnityEditor.EditorUtility.SetDirty(schema);
                 UnityEditor.EditorUtility.SetDirty(group);
                 UnityEditor.AssetDatabase.SaveAssets();
                 UnityEditor.AssetDatabase.Refresh();
@@ -187,76 +240,81 @@ namespace ContentTools
                         entry = settings.CreateOrMoveEntry(guid, group);
                     }
 
-                    // Simplify address: use file name without extension; ensure unique within group
-                    var baseName = System.IO.Path.GetFileNameWithoutExtension(path);
-                    string address = baseName;
-                    //int n = 2;
-                    //while (usedAddresses.Contains(address))
-                    //    address = $"{baseName}_{n++}";
-
-                    if (entry.address != address)
+                    // Assign address equal to asset name (unique within the group)
+                    string addressBase = go.name;
+                    string address = addressBase;
+                    int i = 1;
+                    while (usedAddresses.Contains(address))
                     {
-                        entry.SetAddress(address);
-                        usedAddresses.Add(address);
+                        address = $"{addressBase}_{i++}";
                     }
 
-                    // Auto-labels: filename tokens + pack-level labels
-                    foreach (var lab in LabelsFromAssetName(baseName))
-                        entry.SetLabel(lab, true, true);
+                    if (address == addressBase)
+                    {
+                        usedAddresses.Add(address);
+                    
+                        entry.address = address;
 
+                        // Apply labels based on asset name tokens
+                        foreach (var lab in LabelsFromAssetName(go.name))
+                        {
+                            entry.SetLabel(lab, true, true);
+                        }
 
+                        UnityEditor.EditorUtility.SetDirty(entry.TargetAsset);
+                    }
+ 
                 }
 
+                // Remove entries that are no longer referenced
+                var currentGuids = new HashSet<string>(_items
+                    .Where(x => x != null)
+                    .Select(x => UnityEditor.AssetDatabase.AssetPathToGUID(UnityEditor.AssetDatabase.GetAssetPath(x)))
+                    .Where(g => !string.IsNullOrEmpty(g)));
+
+                foreach (var old in existingEntries)
+                {
+                    if (!currentGuids.Contains(old.guid))
+                    {
+                        settings.RemoveAssetEntry(old.guid);
+                    }
+                }
+
+                UnityEditor.EditorUtility.SetDirty(group);
                 UnityEditor.AssetDatabase.SaveAssets();
-            }
-            catch (System.Exception ex)
-            {
-                Debug.LogError($"[{nameof(ContentPackDefinition)}] Sync failed:\n{ex}");
+                UnityEditor.AssetDatabase.Refresh();
             }
             finally
             {
                 _syncInProgress = false;
             }
         }
+#endif // UNITY_EDITOR
 
-        // ---- helpers ----
-
-        private static string EnsureProfileVar(
-            UnityEditor.AddressableAssets.Settings.AddressableAssetProfileSettings prof, string name,
-            string defaultValueIfCreated)
+        // -------------- Utility: enum assignment helpers (as in your original) --------------
+        private static bool TryAssignEnum(System.Type enumType, string[] candidates, out object value)
         {
-            try
+            value = null;
+            foreach (var c in candidates)
             {
-                prof.CreateValue(name, defaultValueIfCreated);
+                try
+                {
+                    value = System.Enum.Parse(enumType, c, true);
+                    return true;
+                }
+                catch { }
             }
-            catch
-            {
-            }
-
-            return name; // we always refer to variables by NAME
+            return false;
         }
 
-        private static void SetBoolIfExists(object obj, string prop, bool value)
+        private static void TryAssignEnumToPropertyOrField(object obj, string prop, params string[] candidates)
         {
+            if (obj == null || candidates == null || candidates.Length == 0) return;
             var t = obj.GetType();
-            var p = t.GetProperty(prop, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (p != null && p.PropertyType == typeof(bool) && p.CanWrite)
-            {
-                p.SetValue(obj, value, null);
-                return;
-            }
 
-            var f = t.GetField(prop, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (f != null && f.FieldType == typeof(bool)) f.SetValue(obj, value);
-        }
-
-        // Flexible across Addressables versions: tries multiple enum value spellings.
-        private static void SetEnumIfExists(object obj, string prop, params string[] candidates)
-        {
-            var t = obj.GetType();
             // Try property first
             var pi = t.GetProperty(prop, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            if (pi != null && pi.CanWrite && pi.PropertyType.IsEnum)
+            if (pi != null && pi.PropertyType.IsEnum)
             {
                 if (TryAssignEnum(pi.PropertyType, candidates, out var val))
                 {
@@ -275,49 +333,43 @@ namespace ContentTools
                 }
             }
         }
-
-        private static bool TryAssignEnum(System.Type enumType, string[] candidates, out object value)
+        // ---- Added helpers (non-breaking) ----
+        private static void SetEnumIfExists(object obj, string prop, params string[] candidates)
         {
-            value = null;
-            var names = System.Enum.GetNames(enumType);
-            string Normalize(string s) => new string(s.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
-
-            foreach (var cand in candidates)
-            {
-                foreach (var name in names)
-                {
-                    if (string.Equals(name, cand, System.StringComparison.OrdinalIgnoreCase) ||
-                        Normalize(name) == Normalize(cand))
-                    {
-                        value = System.Enum.Parse(enumType, name);
-                        return true;
-                    }
-                }
-            }
-
-            return false;
+            TryAssignEnumToPropertyOrField(obj, prop, candidates);
         }
         
+        private static string EnsureProfileVar(UnityEditor.AddressableAssets.Settings.AddressableAssetProfileSettings prof, string name, string defaultValueIfCreated)
+        {
+            try { prof.CreateValue(name, defaultValueIfCreated); } catch { }
+            return name; // we always refer to variables by NAME
+        }
+
+        private static void SetBoolIfExists(object obj, string prop, bool value)
+        {
+            if (obj == null) return;
+            var t = obj.GetType();
+            var pi = t.GetProperty(prop, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (pi != null && pi.PropertyType == typeof(bool)) { pi.SetValue(obj, value, null); return; }
+            var fi = t.GetField(prop, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (fi != null && fi.FieldType == typeof(bool)) { fi.SetValue(obj, value); }
+        }
+
 #if UNITY_EDITOR
         [ContextMenu("Content/Clean Missing References")]
         public void RemoveMissingReferences()
         {
             if (_items == null || _items.Count == 0) return;
-
-            // Record for undo in the editor
-            UnityEditor.Undo.RecordObject(this, "Remove Missing References from Content Pack");
-
+            //UnityEditor.Undo.RecordObject(this, "Remove Missing References from Content Pack");
             int removed = 0;
             for (int i = _items.Count - 1; i >= 0; i--)
             {
-                // In Unity, a broken or destroyed reference compares equal to null
                 if (_items[i] == null)
                 {
                     _items.RemoveAt(i);
                     removed++;
                 }
             }
-
             if (removed > 0)
             {
                 UnityEditor.EditorUtility.SetDirty(this);
@@ -325,8 +377,6 @@ namespace ContentTools
                 Debug.Log($"[{nameof(ContentPackDefinition)}] Removed {removed} missing reference(s) from {_packName}.");
             }
         }
-#endif
-
 #endif
     }
 }
