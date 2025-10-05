@@ -398,7 +398,7 @@ namespace ContentTools.Editor
                             var superKey = g.Key;
                             var foldKey = $"rules.super.{superKey}";
                             if (!_rulesSuperFoldouts.ContainsKey(foldKey))
-                                _rulesSuperFoldouts[foldKey] = true;
+                                _rulesSuperFoldouts[foldKey] = false;
 
                             _rulesSuperFoldouts[foldKey] = EditorGUILayout.Foldout(
                                 _rulesSuperFoldouts[foldKey],
@@ -408,7 +408,7 @@ namespace ContentTools.Editor
                             if (!_rulesSuperFoldouts[foldKey]) continue;
 
                             // Group by Type under each SuperType
-                            EditorGUI.indentLevel++;
+                            //EditorGUI.indentLevel++;
                             var byType = g.GroupBy(r => string.IsNullOrEmpty(r.AppliesToType) ? "*" : r.AppliesToType)
                                 .OrderBy(x => x.Key);
 
@@ -433,7 +433,7 @@ namespace ContentTools.Editor
                                     string brandTok = string.IsNullOrEmpty(r.AppliesToBrand) ? "*" : r.AppliesToBrand;
                                     string ruleFoldKey = $"{typeFoldKey}.brand.{brandTok}";
                                     if (!_rulesRuleFoldouts.ContainsKey(ruleFoldKey))
-                                        _rulesRuleFoldouts[ruleFoldKey] = true;
+                                        _rulesRuleFoldouts[ruleFoldKey] = false;
 
                                     using (new EditorGUILayout.HorizontalScope())
                                     {

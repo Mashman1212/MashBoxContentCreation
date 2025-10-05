@@ -124,6 +124,23 @@
             "RequiredChildren": [
             ],
             "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "BMX",
+            "AppliesToType": "Grip",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+            ],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "BMX",
+            "AppliesToType": "Bar End",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+            ],
+            "RequiredPatterns": []
         }
+        
     ]
 }
