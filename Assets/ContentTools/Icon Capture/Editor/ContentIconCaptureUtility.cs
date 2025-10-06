@@ -138,7 +138,7 @@ namespace Content_Icon_Capture.Editor
                     instance.transform.SetParent(captureLocation, false);
                     instance.SetActive(true);
 
-                    SetToDisplayMesh(instance);
+                    //SetToDisplayMesh(instance);
                     EncapuslateObjectToBounds(instance, captureLocation);
 
                     // Save path: mirror Prefabs -> Icons and append "_Icon"
