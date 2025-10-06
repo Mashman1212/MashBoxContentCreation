@@ -26,7 +26,9 @@
 /[Aa]ssets/Plugins/Editor/JetBrains*
 
 /[Aa]ssets/Content
+/[Aa]ssets/ContentPacks
 /[Aa]ssets/StreamingAssets
+/[Aa]ssets/AddressableAssetsData
 
 # Visual Studio cache directory
 .vs/

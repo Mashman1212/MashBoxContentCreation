@@ -82,7 +82,6 @@ MonoBehaviour:
     AppliesToType: Deck
     AppliesToBrand: 
     RequiredChildren:
-    - BB_Anchor
     - Forks_Anchor
     - Griptape
     - Headset_Anchor
