@@ -318,18 +318,18 @@ namespace ContentTools.Editor
                 if (!_targetFoldout)
                     return;
 
-                //using (new EditorGUILayout.HorizontalScope())
-                //{
-                //    GUILayout.Label("Steam Root:", GUILayout.Width(90));
-                //    var root = SteamLocator.GetSteamRoot() ?? "<not found>";
-                //    EditorGUILayout.SelectableLabel(root, GUILayout.Height(16));
-                //    GUILayout.FlexibleSpace();
-                //    if (GUILayout.Button("Rescan", GUILayout.Width(80)))
-                //    {
-                //        var ids = ALLOWED_GAMES.Select(g => g.SteamAppId).ToArray();
-                //        _steamInstalls = SteamLocator.TryGetGameInstallPaths(ids);
-                //    }
-                //}
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    GUILayout.Label("Steam Root:", GUILayout.Width(90));
+                    var root = SteamLocator.GetSteamRoot() ?? "<not found>";
+                    EditorGUILayout.SelectableLabel(root, GUILayout.Height(16));
+                    GUILayout.FlexibleSpace();
+                    if (GUILayout.Button("Rescan", GUILayout.Width(80)))
+                    {
+                        var ids = ALLOWED_GAMES.Select(g => g.SteamAppId).ToArray();
+                        _steamInstalls = SteamLocator.TryGetGameInstallPaths(ids);
+                    }
+                }
 
                 GUILayout.Space(4);
 
