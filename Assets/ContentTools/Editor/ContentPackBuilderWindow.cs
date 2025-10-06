@@ -38,7 +38,7 @@ namespace ContentTools.Editor
         private static readonly AllowedGame[] ALLOWED_GAMES = new[]
         {
             new AllowedGame { DisplayName = "BMXS", SteamAppId = 871540 },
-            new AllowedGame { DisplayName = "ScootX", SteamAppId = 3062380 },
+            new AllowedGame { DisplayName = "ScootX", SteamAppId = 3800340 },
         };
 
         private const string STREAMING_SUBPATH = "Addressables/Customization"; // under StreamingAssets
