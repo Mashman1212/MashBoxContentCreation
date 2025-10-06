@@ -1,0 +1,49 @@
+{
+  "entries": [
+    {
+      "match": "Scooter_Deck_*",
+      "position": [-0.05, -0.014, 0.2],
+      "euler": [-2.575, 35.323, 0.0]
+    },
+    {
+      "match": "Scooter_Bars_*",
+      "position": [0.0, 0.0, 0.042],
+      "euler": [0.0, 0.0, 0.0]
+    },
+    {
+      "match": "Scooter_Clamp_*",
+      "position": [0.0, 0.0, 0.0],
+      "euler": [0.0, 90.0, 0.0]
+    },
+    {
+      "match": "Scooter_Forks_*",
+      "position": [0.0, 0.0, 0.0],
+      "euler": [-2.575, 50.0, 0.0]
+    },
+    {
+      "match": "Scooter_Griptape_*",
+      "position": [0.0, 0.0, 0.0],
+      "euler": [90.0, 0.0, 0.0]
+    },
+    {
+      "match": "Scooter_Urethane_*",
+      "position": [0.0, 0.0, 0.0],
+      "euler": [0.0, 90.0, 0.0]
+    },
+    {
+      "match": "Scooter_Wheel_*",
+      "position": [0.0, 0.0, 0.0],
+      "euler": [0.0, 90.0, 0.0]
+    },
+    {
+      "match": "Scooter_Grip_*",
+      "position": [0.04090327, 0.01447819, 0.01666069],
+      "euler": [12.357, -50.442, -4.561]
+    },
+    {
+      "match": "Scooter_Bar End_*",
+      "position": [0.0, 0.0004, 0.0069],
+      "euler": [186.111, -31.63, -183.691]
+    }
+  ]
+}

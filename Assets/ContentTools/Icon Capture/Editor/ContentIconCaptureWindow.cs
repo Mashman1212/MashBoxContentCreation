@@ -82,7 +82,12 @@ namespace ContentTools.Icon_Capture.Editor
             {
                 _captureLocationGo = FindCaptureObject<Transform>("contentIconCaptureLocation")?.gameObject;
             }
-            
+
+            if (GUILayout.Button("Encapsulate To Bounds"))
+            {
+                EncapuslateObjectToBounds();
+            }
+
             if (GUILayout.Button("Capture Selection"))
             {
                 RunInCaptureScene(() =>
@@ -168,6 +173,11 @@ namespace ContentTools.Icon_Capture.Editor
             }
         }
 
+        void EncapuslateObjectToBounds()
+        {
+            EncapuslateObjectToBounds(_captureLocationGo.transform.GetChild(0).gameObject);
+        }
+        
         void CaptureNext()
         {
             StageNextObject();

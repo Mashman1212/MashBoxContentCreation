@@ -20,7 +20,8 @@ namespace Content_Icon_Capture.Editor
         /// Renders a square icon from the given camera and writes to outputPath (without extension).
         /// The file extension is chosen from imageType.
         /// </summary>
-        public static void CaptureAndSaveIcon(string outputPath, Camera captureCamera, int renderSize, int outputSize, ImageType imageType)
+        public static void CaptureAndSaveIcon(string outputPath, Camera captureCamera, int renderSize, int outputSize,
+            ImageType imageType)
         {
             if (captureCamera == null)
             {
@@ -105,7 +106,8 @@ namespace Content_Icon_Capture.Editor
         /// Opens "Capture Scene" in Single mode and captures icons for the list of prefabs.
         /// Icons are saved alongside a mirrored "Icons" folder (e.g., Prefabs/Foo.prefab -> Icons/Foo_Icon.png).
         /// </summary>
-        public static void CaptureIconsForPrefabs(IEnumerable<GameObject> prefabs, int renderSize = 2048, int outputSize = 2048, ImageType imageType = ImageType.PNG)
+        public static void CaptureIconsForPrefabs(IEnumerable<GameObject> prefabs, int renderSize = 2048,
+            int outputSize = 2048, ImageType imageType = ImageType.PNG)
         {
             if (prefabs == null) return;
 
@@ -135,12 +137,28 @@ namespace Content_Icon_Capture.Editor
                     // Instantiate under the capture location
                     var instance = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
                     if (!instance) continue;
-                    instance.transform.SetParent(captureLocation, false);
+                    instance.transform.SetParent(captureLocation.GetChild(0), false);
                     instance.SetActive(true);
 
-                    //SetToDisplayMesh(instance);
-                    EncapuslateObjectToBounds(instance, captureLocation);
+                    captureLocation.GetChild(0).localPosition = Vector3.zero;
+                    captureLocation.GetChild(0).localRotation = Quaternion.identity;
+                    var entry = FindOffsetFor(prefab.name);
+                    if (entry != null)
+                    {
+                        // Optional scale override first (so position offset is in final local scale)
+                        if (entry.scale != null && entry.scale.Length >= 3)
+                            instance.transform.localScale = V3(entry.scale, instance.transform.localScale);
 
+                        // Local position/rotation OFFSET relative to the capture root
+                        var posOff = V3(entry.position, Vector3.zero);
+                        var eulOff = V3(entry.euler, Vector3.zero);
+
+                        captureLocation.GetChild(0).localPosition = posOff;
+                        captureLocation.GetChild(0).localRotation = Quaternion.Euler(eulOff);
+                    }
+                    
+                    EncapuslateObjectToBounds(instance, captureLocation);
+                    
                     // Save path: mirror Prefabs -> Icons and append "_Icon"
                     string dir = prefabPath.Replace("\\", "/");
                     var fileName = Path.GetFileNameWithoutExtension(dir) + "_Icon";
@@ -177,6 +195,7 @@ namespace Content_Icon_Capture.Editor
         {
             if (go == null || captureLocation == null) return;
 
+            Debug.Log("EncapuslateObjectToBounds");
             var meshFilters = go.GetComponentsInChildren<MeshFilter>();
             var skinned = go.GetComponentsInChildren<SkinnedMeshRenderer>();
             Bounds worldBounds = new Bounds(go.transform.position, Vector3.zero);
@@ -212,7 +231,10 @@ namespace Content_Icon_Capture.Editor
             float scale = (maxDim > 0f) ? (1f / maxDim) : 1f;
 
             go.transform.localScale = Vector3.one * scale;
-            go.transform.position = captureLocation.position - (center - go.transform.position) * scale;
+            Vector3 newPos = captureLocation.position - (center - go.transform.position) * scale;
+            newPos.x = go.transform.position.x;
+            newPos.z = go.transform.position.z;
+            go.transform.position = newPos;
             go.transform.localRotation = Quaternion.identity;
         }
 
@@ -286,13 +308,116 @@ namespace Content_Icon_Capture.Editor
                 return;
             }
 
-            importer.textureType = TextureImporterType.Sprite;                  // 2D and UI
-            importer.maxTextureSize = 2048;                                     // keep 2K “as is”
+            importer.textureType = TextureImporterType.Sprite; // 2D and UI
+            importer.maxTextureSize = 2048; // keep 2K “as is”
             importer.mipmapEnabled = false;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
 
             importer.SaveAndReimport();
         }
+
+        // ===== Offsets config (JSON) =====
+        [System.Serializable]
+        private class OffsetConfig
+        {
+            public OffsetEntry[] entries = System.Array.Empty<OffsetEntry>();
+        }
+
+        [System.Serializable]
+        private class OffsetEntry
+        {
+            // Simple wildcard pattern that matches prefab name (case-insensitive), e.g. "Scooter_*", "BMX_Forks_*"
+            public string match = "*";
+
+            // Arrays in JSON: [x,y,z]
+            public float[] position = new float[3]; // localPosition offset to apply after placement/encapsulation
+            public float[] euler = new float[3]; // localRotation offset (Euler degrees)
+            public float[] scale = null; // optional localScale override (3 floats) — optional nicety
+        }
+
+        private static OffsetConfig _cachedOffsets;
+
+// Try to load IconCaptureOffsets.json from Editor Default Resources, Resources, or anywhere in project.
+        private static OffsetConfig LoadOffsetsConfig()
+        {
+#if UNITY_EDITOR
+            //if (_cachedOffsets != null) return _cachedOffsets;
+
+            TextAsset ta = null;
+
+            // 1) Editor Default Resources (path-less load)
+            // Put file at: Assets/Editor Default Resources/IconCaptureOffsets.json
+            var edr = UnityEditor.EditorGUIUtility.Load("IconCaptureOffsets.json") as TextAsset;
+            if (edr != null) ta = edr;
+
+            // 2) Resources/IconCaptureOffsets (Assets/**/Resources/IconCaptureOffsets.json -> name "IconCaptureOffsets")
+            if (ta == null) ta = Resources.Load<TextAsset>("IconCaptureOffsets");
+
+            // 3) Fallback: search anywhere in project for the asset by name
+            if (ta == null)
+            {
+                foreach (var guid in UnityEditor.AssetDatabase.FindAssets("IconCaptureOffsets t:TextAsset"))
+                {
+                    var p = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                    var maybe = UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(p);
+                    if (maybe != null && (p.EndsWith(".json", System.StringComparison.OrdinalIgnoreCase)))
+                    {
+                        ta = maybe;
+                        break;
+                    }
+                }
+            }
+
+            if (ta == null)
+                return _cachedOffsets = new OffsetConfig(); // empty, no entries
+
+            try
+            {
+                // Unity can’t JsonUtility arrays-of-arrays directly for Vector3, so we store float[3] in JSON.
+                var cfg = JsonUtility.FromJson<OffsetConfig>(ta.text);
+                return _cachedOffsets = (cfg ?? new OffsetConfig());
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[ContentIconCaptureUtility] Failed to parse IconCaptureOffsets.json: {ex.Message}");
+                return _cachedOffsets = new OffsetConfig();
+            }
+#else
+    return new OffsetConfig();
+#endif
+        }
+
+// Simple wildcard match (*) → regex, case-insensitive
+        private static bool WildcardMatch(string input, string pattern)
+        {
+            if (string.IsNullOrEmpty(pattern)) return true;
+            pattern = System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*");
+            return System.Text.RegularExpressions.Regex.IsMatch(input ?? string.Empty, "^" + pattern + "$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+
+        private static OffsetEntry FindOffsetFor(string prefabName)
+        {
+            var cfg = LoadOffsetsConfig();
+            if (cfg?.entries == null || cfg.entries.Length == 0) return null;
+
+            // First entry that matches wins (top-down)
+            foreach (var e in cfg.entries)
+            {
+                if (e == null || string.IsNullOrWhiteSpace(e.match)) continue;
+                if (WildcardMatch(prefabName, e.match)) return e;
+            }
+
+            return null;
+        }
+
+        private static Vector3 V3(float[] arr, Vector3 fallback)
+        {
+            if (arr == null || arr.Length < 3) return fallback;
+            return new Vector3(arr[0], arr[1], arr[2]);
+        }
+
+
 #endif
     }
 }
