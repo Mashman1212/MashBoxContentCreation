@@ -1,3 +1,4 @@
+// Requires SteamLocator.cs and StreamingAssetsResolver.cs (Editor-only helpers)
 #if UNITY_EDITOR
 using System;
 using System.Linq;
@@ -9,10 +10,11 @@ using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
 using System.IO;
 
-// pull in the icon capture utility
 using Content_Icon_Capture.Editor;
 using Debug = UnityEngine.Debug;
 using Object = UnityEngine.Object;
+
+using ContentTools.Editor.SteamDetect;
 
 namespace ContentTools.Editor
 {
@@ -26,6 +28,29 @@ namespace ContentTools.Editor
     /// </summary>
     public class ContentPackBuilderWindow : EditorWindow
     {
+        [System.Serializable]
+        public struct AllowedGame
+        {
+            public string DisplayName;
+            public long SteamAppId;
+        }
+
+        private static readonly AllowedGame[] ALLOWED_GAMES = new[]
+        {
+            new AllowedGame { DisplayName = "BMXS", SteamAppId = 871540 },
+            new AllowedGame { DisplayName = "ScootX", SteamAppId = 3062380 },
+        };
+
+        private const string STREAMING_SUBPATH = "Addressables/Customization"; // under StreamingAssets
+
+// Cache of detections (AppID -> install path)
+        private System.Collections.Generic.Dictionary<long, string> _steamInstalls =
+            new System.Collections.Generic.Dictionary<long, string>();
+
+        private long _lastChosenAppId = 0; // persisted for UX
+        private const string PREF_KEY_LAST_APP = "ContentPackBuilder.LastChosenAppId";
+
+
         private const string FORCED_PACKS_FOLDER = "Assets/ContentPacks";
         private const string PREF_KEY_BUILD_LOCATION = "ContentPackBuilder.BuildLocation";
 
@@ -50,7 +75,12 @@ namespace ContentTools.Editor
         private static bool _warnedNoRules;
 
         private static GUIStyle _helpWrap, _errStyle, _warnStyle, _miniHeader, _dropZoneStyle;
-        private bool _rulesFoldout = true;
+// UI state: Build Output Target panel foldout (default open)
+private bool _targetFoldout = true;
+
+// Cache Steam library images (capsules/headers) by AppID
+private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary<long, Texture2D>();
+        private bool _rulesFoldout = false;
         private Vector2 _scroll;
 
         [MenuItem("MashBox/Content Manager")]
@@ -63,6 +93,8 @@ namespace ContentTools.Editor
         {
             _settings = AddressableAssetSettingsDefaultObject.Settings;
             _buildLocation = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, DefaultBuildFolderRel);
+
+            _lastChosenAppId = long.TryParse(EditorPrefs.GetString(PREF_KEY_LAST_APP, "0"), out var v) ? v : 0;
 
             // If there isn't one saved yet, default to Assets/StreamingAssets/Addressables/Customization
             if (string.IsNullOrWhiteSpace(_buildLocation))
@@ -79,11 +111,16 @@ namespace ContentTools.Editor
             EditorApplication.projectChanged += OnProjectChanged;
 
             RevalidateAllItems();
+
+// Detect Steam installs for allowed games
+            var ids = ALLOWED_GAMES.Select(g => g.SteamAppId).ToArray();
+            _steamInstalls = SteamLocator.TryGetGameInstallPaths(ids);
         }
 
         private void OnDisable()
         {
             EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation ?? string.Empty);
+            EditorPrefs.SetString(PREF_KEY_LAST_APP, _lastChosenAppId.ToString());
             EditorApplication.projectChanged -= OnProjectChanged;
         }
 
@@ -157,9 +194,9 @@ namespace ContentTools.Editor
             {
                 Header();
                 GUILayout.Space(6);
-                DrawCreateSection();
-                GUILayout.Space(6);
                 DrawRulesOverview();
+                GUILayout.Space(6);
+                DrawCreateSection();
                 GUILayout.Space(6);
                 DrawPacksList();
                 GUILayout.Space(8);
@@ -175,64 +212,271 @@ namespace ContentTools.Editor
                 _errStyle = new GUIStyle(EditorStyles.boldLabel);
                 _errStyle.normal.textColor = new Color(.9f, 0.25f, .25f);
             }
-
             if (_warnStyle == null)
             {
                 _warnStyle = new GUIStyle(EditorStyles.label);
                 _warnStyle.normal.textColor = new Color(1f, 0.5f, 0f);
             }
-
             if (_miniHeader == null)
                 _miniHeader = new GUIStyle(EditorStyles.miniBoldLabel) { alignment = TextAnchor.MiddleLeft };
             if (_dropZoneStyle == null)
             {
-                _dropZoneStyle = new GUIStyle(EditorStyles.helpBox)
-                {
-                    alignment = TextAnchor.MiddleCenter,
-                    fontStyle = FontStyle.Italic
-                };
+                _dropZoneStyle = new GUIStyle(EditorStyles.helpBox) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic };
                 _dropZoneStyle.normal.textColor = new Color(0.75f, 0.75f, 0.75f);
             }
 
             EditorGUILayout.LabelField("Content Manager", EditorStyles.boldLabel);
             GUILayout.Space(4);
 
-            using (new EditorGUILayout.HorizontalScope())
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                using (new EditorGUILayout.VerticalScope())
-                {
-                    EditorGUILayout.LabelField("Build Output Folder", GUILayout.Width(140));
+                _targetFoldout = EditorGUILayout.Foldout(_targetFoldout, "Game", true);
+                if (!_targetFoldout)
+                    return;
 
-                    if (string.IsNullOrWhiteSpace(_buildLocation))
+                //using (new EditorGUILayout.HorizontalScope())
+                //{
+                //    GUILayout.Label("Steam Root:", GUILayout.Width(90));
+                //    var root = SteamLocator.GetSteamRoot() ?? "<not found>";
+                //    EditorGUILayout.SelectableLabel(root, GUILayout.Height(16));
+                //    GUILayout.FlexibleSpace();
+                //    if (GUILayout.Button("Rescan", GUILayout.Width(80)))
+                //    {
+                //        var ids = ALLOWED_GAMES.Select(g => g.SteamAppId).ToArray();
+                //        _steamInstalls = SteamLocator.TryGetGameInstallPaths(ids);
+                //    }
+                //}
+
+                GUILayout.Space(4);
+
+                foreach (var g in ALLOWED_GAMES)
+                {
+                    // Breakpoints you can tune
+                    float vw = EditorGUIUtility.currentViewWidth;
+                    bool narrow = vw < 520f; // buttons wrap to a new row
+                    bool ultraNarrow = vw < 380f; // buttons stack vertically
+
+                    using (new EditorGUILayout.VerticalScope())
                     {
-                        EditorGUILayout.HelpBox("Set a build output folder before building.", MessageType.Warning);
+                        using (new EditorGUILayout.HorizontalScope())
+                        {
+                            string install = null;
+                            var detected = _steamInstalls.TryGetValue(g.SteamAppId, out install);
+                            bool isActive = (_lastChosenAppId == g.SteamAppId) && !string.IsNullOrEmpty(_buildLocation);
+
+                            // left image
+                            var tex = Resources.Load<Texture2D>(g.DisplayName + "_Logo");
+                            var imgRect = GUILayoutUtility.GetRect(96, 48, GUILayout.Width(96), GUILayout.Height(48));
+                            if (Event.current.type == EventType.Repaint)
+                            {
+                                var bg = isActive
+                                    ? new Color(0.15f, 0.5f, 0.15f, 0.15f)
+                                    : (EditorGUIUtility.isProSkin
+                                        ? new Color(1, 1, 1, 0.04f)
+                                        : new Color(0, 0, 0, 0.05f));
+                                EditorGUI.DrawRect(imgRect, bg);
+                            }
+
+                            if (tex != null) GUI.DrawTexture(imgRect, tex, ScaleMode.ScaleAndCrop);
+
+                            // middle text
+                            using (new EditorGUILayout.VerticalScope())
+                            {
+                                var nameStyle = new GUIStyle(EditorStyles.label);
+                                if (isActive) nameStyle.normal.textColor = Color.green;
+                                EditorGUILayout.LabelField(g.DisplayName, nameStyle);
+
+                                using (new EditorGUILayout.HorizontalScope())
+                                {
+                                    var status = detected ? "Installed" : "Not installed";
+                                    var statusStyle = new GUIStyle(EditorStyles.miniLabel);
+                                    statusStyle.normal.textColor = detected
+                                        ? (isActive
+                                            ? Color.green
+                                            : (EditorGUIUtility.isProSkin
+                                                ? new Color(0.7f, 0.7f, 0.7f)
+                                                : new Color(0.2f, 0.2f, 0.2f)))
+                                        : new Color(0.9f, 0.3f, 0.3f);
+
+                                    EditorGUILayout.LabelField(status, statusStyle, GUILayout.Width(100));
+                                    if (isActive)
+                                    {
+                                        var activeStyle = new GUIStyle(EditorStyles.miniBoldLabel);
+                                        activeStyle.normal.textColor = Color.green;
+                                        EditorGUILayout.LabelField("✓ Active target", activeStyle);
+                                    }
+                                }
+                            }
+
+                            GUILayout.FlexibleSpace();
+
+                            // Wide layout: keep buttons on the same row
+                            if (!narrow)
+                            {
+                                using (new EditorGUI.DisabledScope(!detected))
+                                {
+                                    if (GUILayout.Button(isActive ? "Re-set Target" : "Set Target",
+                                            GUILayout.MinWidth(110), GUILayout.Height(22)))
+                                    {
+                                        var sa = StreamingAssetsResolver.TryResolve(install);
+                                        if (string.IsNullOrEmpty(sa))
+                                        {
+                                            EditorUtility.DisplayDialog("StreamingAssets not found",
+                                                $"Could not locate StreamingAssets inside:\n{install}\n\n" +
+                                                "Launch the game once via Steam, then Rescan.", "OK");
+                                        }
+                                        else
+                                        {
+                                            var final = StreamingAssetsResolver.AppendSubfolder(sa, STREAMING_SUBPATH);
+                                            _buildLocation = final;
+                                            _lastChosenAppId = g.SteamAppId;
+                                            EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
+                                            EditorPrefs.SetString(PREF_KEY_LAST_APP, _lastChosenAppId.ToString());
+                                            Debug.Log(
+                                                $"[ContentPackBuilder] Target set to {g.DisplayName}: {_buildLocation}");
+                                        }
+                                    }
+                                }
+
+                                using (new EditorGUI.DisabledScope(!detected))
+                                {
+                                    if (GUILayout.Button("Open Folder", GUILayout.MinWidth(100), GUILayout.Height(22)))
+                                    {
+                                        var sa = StreamingAssetsResolver.TryResolve(install);
+                                        var final = StreamingAssetsResolver.AppendSubfolder(sa, STREAMING_SUBPATH);
+                                        OpenBuildOutputFolder(final);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Narrow layout: wrap buttons to a new row and let them expand
+                        if (narrow)
+                        {
+                            using (new EditorGUILayout.HorizontalScope())
+                            {
+                                // indent under the 96px logo + a small gutter
+                                GUILayout.Space(96f + 8f);
+
+                                if (ultraNarrow)
+                                {
+                                    using (new EditorGUILayout.VerticalScope())
+                                    {
+                                        using (new EditorGUI.DisabledScope(!_steamInstalls.ContainsKey(g.SteamAppId)))
+                                        {
+                                            if (GUILayout.Button(
+                                                    (_lastChosenAppId == g.SteamAppId &&
+                                                     !string.IsNullOrEmpty(_buildLocation))
+                                                        ? "Re-set Target"
+                                                        : "Set Target",
+                                                    GUILayout.ExpandWidth(true), GUILayout.Height(22)))
+                                            {
+                                                var install = _steamInstalls[g.SteamAppId];
+                                                var sa = StreamingAssetsResolver.TryResolve(install);
+                                                if (string.IsNullOrEmpty(sa))
+                                                {
+                                                    EditorUtility.DisplayDialog("StreamingAssets not found",
+                                                        $"Could not locate StreamingAssets inside:\n{install}\n\n" +
+                                                        "Launch the game once via Steam, then Rescan.", "OK");
+                                                }
+                                                else
+                                                {
+                                                    var final = StreamingAssetsResolver.AppendSubfolder(sa,
+                                                        STREAMING_SUBPATH);
+                                                    _buildLocation = final;
+                                                    _lastChosenAppId = g.SteamAppId;
+                                                    EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
+                                                    EditorPrefs.SetString(PREF_KEY_LAST_APP,
+                                                        _lastChosenAppId.ToString());
+                                                    Debug.Log(
+                                                        $"[ContentPackBuilder] Target set to {g.DisplayName}: {_buildLocation}");
+                                                }
+                                            }
+                                        }
+
+                                        using (new EditorGUI.DisabledScope(!_steamInstalls.ContainsKey(g.SteamAppId)))
+                                        {
+                                            if (GUILayout.Button("Open Folder", GUILayout.ExpandWidth(true),
+                                                    GUILayout.Height(22)))
+                                            {
+                                                var install = _steamInstalls[g.SteamAppId];
+                                                var sa = StreamingAssetsResolver.TryResolve(install);
+                                                var final = StreamingAssetsResolver.AppendSubfolder(sa,
+                                                    STREAMING_SUBPATH);
+                                                OpenBuildOutputFolder(final);
+                                            }
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    using (new EditorGUI.DisabledScope(!_steamInstalls.ContainsKey(g.SteamAppId)))
+                                    {
+                                        if (GUILayout.Button(
+                                                (_lastChosenAppId == g.SteamAppId &&
+                                                 !string.IsNullOrEmpty(_buildLocation))
+                                                    ? "Re-set Target"
+                                                    : "Set Target",
+                                                GUILayout.ExpandWidth(true), GUILayout.Height(22)))
+                                        {
+                                            var install = _steamInstalls[g.SteamAppId];
+                                            var sa = StreamingAssetsResolver.TryResolve(install);
+                                            if (string.IsNullOrEmpty(sa))
+                                            {
+                                                EditorUtility.DisplayDialog("StreamingAssets not found",
+                                                    $"Could not locate StreamingAssets inside:\n{install}\n\n" +
+                                                    "Launch the game once via Steam, then Rescan.", "OK");
+                                            }
+                                            else
+                                            {
+                                                var final = StreamingAssetsResolver.AppendSubfolder(sa,
+                                                    STREAMING_SUBPATH);
+                                                _buildLocation = final;
+                                                _lastChosenAppId = g.SteamAppId;
+                                                EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
+                                                EditorPrefs.SetString(PREF_KEY_LAST_APP, _lastChosenAppId.ToString());
+                                                Debug.Log(
+                                                    $"[ContentPackBuilder] Target set to {g.DisplayName}: {_buildLocation}");
+                                            }
+                                        }
+                                    }
+
+                                    using (new EditorGUI.DisabledScope(!_steamInstalls.ContainsKey(g.SteamAppId)))
+                                    {
+                                        if (GUILayout.Button("Open Folder", GUILayout.ExpandWidth(true),
+                                                GUILayout.Height(22)))
+                                        {
+                                            var install = _steamInstalls[g.SteamAppId];
+                                            var sa = StreamingAssetsResolver.TryResolve(install);
+                                            var final = StreamingAssetsResolver.AppendSubfolder(sa, STREAMING_SUBPATH);
+                                            OpenBuildOutputFolder(final);
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
-                    
                 }
 
-                EditorGUI.BeginChangeCheck();
-                _buildLocation = EditorGUILayout.TextField(_buildLocation);
-                if (EditorGUI.EndChangeCheck())
-                    EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
 
-                if (GUILayout.Button("Browse", GUILayout.Width(80)))
-                {
-                    var chosen = EditorUtility.OpenFolderPanel("Choose build folder",
-                        string.IsNullOrEmpty(_buildLocation) ? Application.dataPath : _buildLocation, "");
-                    if (!string.IsNullOrEmpty(chosen))
-                    {
-                        _buildLocation = chosen.Replace("\\", "/");
-                        EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
-                    }
-                }
-
-                if (!string.IsNullOrEmpty(_buildLocation))
-                    if (GUILayout.Button("Open", GUILayout.Width(60)))
-                    {
-                        OpenBuildOutputFolder(_buildLocation);
-                    }
+                //using (new EditorGUILayout.HorizontalScope())
+                //{
+                //    GUILayout.Label("Current Target:", GUILayout.Width(100));
+                //    EditorGUI.BeginDisabledGroup(true);
+                //    EditorGUILayout.TextField(string.IsNullOrEmpty(_buildLocation) ? "<not set>" : _buildLocation);
+                //    EditorGUI.EndDisabledGroup();
+                //}
+                //
+                //if (string.IsNullOrEmpty(_buildLocation))
+                //{
+                //    EditorGUILayout.HelpBox("Choose a game above to set the build output target. Users cannot set a custom path.", MessageType.Info);
+                //}
+                //else
+                //{
+                //    EditorGUILayout.HelpBox("Builds will be written under the selected game's StreamingAssets folder.", MessageType.None);
+                //}
             }
-        }
+}
 
         private void DrawCreateSection()
         {
@@ -256,7 +500,7 @@ namespace ContentTools.Editor
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField("New Pack Data Name", GUILayout.Width(110));
+                //EditorGUILayout.LabelField("New Pack Data", GUILayout.Width(110));
                 _newPackName =
                     EditorGUILayout.TextField(_newPackName, GUILayout.MinWidth(250), GUILayout.ExpandWidth(true));
 
@@ -324,8 +568,10 @@ namespace ContentTools.Editor
 
         // Scroll position for the Part Hierarchy Rules panel
         private Vector2 _rulesHierarchyScroll;
+
 // Tweak this if you want a taller/shorter panel
         private const float RULES_HIERARCHY_MAX_HEIGHT = 320f;
+
         private void DrawRulesOverview()
         {
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
@@ -661,7 +907,7 @@ namespace ContentTools.Editor
                         {
                             // inside: using (new EditorGUILayout.HorizontalScope())  // the header row per pack
                             _selected[key] = EditorGUILayout.Toggle(_selected[key], GUILayout.Width(18));
-                            _foldouts[key]  = EditorGUILayout.Foldout(_foldouts[key], p.name, true);
+                            _foldouts[key] = EditorGUILayout.Foldout(_foldouts[key], p.name, true);
                             GUILayout.FlexibleSpace();
 
 // NEW: Ping the pack asset in the Project window
@@ -1549,6 +1795,73 @@ namespace ContentTools.Editor
             Repaint();
 
         }
+
+
+
+
+        private Texture2D TryLoadSteamLibraryImage(long appId, int maxHeight = 64)
+        {
+            if (_steamCapsuleCache.TryGetValue(appId, out var cached) && cached != null)
+                return cached;
+
+            var root = SteamLocator.GetSteamRoot();
+            if (string.IsNullOrEmpty(root)) return null;
+
+            var libCache = System.IO.Path.Combine(root, "librarycache");
+            if (!System.IO.Directory.Exists(libCache)) return null;
+
+            // Common filename patterns in librarycache
+            var candidates = new List<string>
+            {
+                System.IO.Path.Combine(libCache, $"app_{appId}_header.jpg"),
+                System.IO.Path.Combine(libCache, $"app_{appId}_header.png"),
+                System.IO.Path.Combine(libCache, $"app_{appId}.jpg"),
+                System.IO.Path.Combine(libCache, $"app_{appId}.png"),
+                System.IO.Path.Combine(libCache, $"library_hero_{appId}.jpg"),
+                System.IO.Path.Combine(libCache, $"library_hero_{appId}.png"),
+                System.IO.Path.Combine(libCache, $"capsule_{appId}.jpg"),
+                System.IO.Path.Combine(libCache, $"capsule_{appId}.png"),
+            };
+
+            string hit = null;
+            foreach (var p in candidates)
+            {
+                if (System.IO.File.Exists(p)) { hit = p; break; }
+            }
+
+            if (hit == null)
+            {
+                try
+                {
+                    var files = System.IO.Directory.GetFiles(libCache, "*.*", SearchOption.TopDirectoryOnly);
+                    foreach (var f in files)
+                    {
+                        if (!(f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".png", StringComparison.OrdinalIgnoreCase)))
+                            continue;
+                        var name = System.IO.Path.GetFileNameWithoutExtension(f);
+                        if (name != null && name.Contains(appId.ToString()))
+                        {
+                            hit = f;
+                            break;
+                        }
+                    }
+                }
+                catch {}
+            }
+
+            if (string.IsNullOrEmpty(hit)) return null;
+
+            byte[] bytes = null;
+            try { bytes = System.IO.File.ReadAllBytes(hit); } catch {}
+            if (bytes == null) return null;
+
+            var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            if (!tex.LoadImage(bytes, markNonReadable: true)) return null;
+
+            _steamCapsuleCache[appId] = tex;
+            return tex;
+        }
+    
 
     }
 }
