@@ -1,11 +1,12 @@
 ﻿using System.Collections.Generic;
-using UnityEditor;
-using UnityEngine;
 using System.IO;
+using Content_Icon_Capture.Editor;
+using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Content_Icon_Capture.Editor
+namespace ContentTools.Icon_Capture.Editor
 {
     public class ContentIconCaptureWindow : EditorWindow
     {
@@ -160,7 +161,7 @@ namespace Content_Icon_Capture.Editor
                 if (_currentCaptureObject.InstantiatedObj)
                 {
                     _currentCaptureObject.InstantiatedObj.SetActive(true);
-                    SetToDisplayMesh(_currentCaptureObject.InstantiatedObj);
+                    //SetToDisplayMesh(_currentCaptureObject.InstantiatedObj);
 
                     EncapuslateObjectToBounds(_currentCaptureObject.InstantiatedObj);
                 }
