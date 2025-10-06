@@ -207,6 +207,7 @@ namespace ContentTools.Editor
                     {
                         EditorGUILayout.HelpBox("Set a build output folder before building.", MessageType.Warning);
                     }
+                    
                 }
 
                 EditorGUI.BeginChangeCheck();
@@ -236,7 +237,7 @@ namespace ContentTools.Editor
         private void DrawCreateSection()
         {
             EditorGUILayout.Space(4);
-            EditorGUILayout.LabelField("Create Packs", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Create Pack Data", EditorStyles.boldLabel);
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -255,12 +256,12 @@ namespace ContentTools.Editor
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                EditorGUILayout.LabelField("New Pack Name", GUILayout.Width(110));
+                EditorGUILayout.LabelField("New Pack Data Name", GUILayout.Width(110));
                 _newPackName =
                     EditorGUILayout.TextField(_newPackName, GUILayout.MinWidth(250), GUILayout.ExpandWidth(true));
 
                 GUI.enabled = !string.IsNullOrWhiteSpace(_newPackName);
-                if (GUILayout.Button("Create Pack", GUILayout.Width(110)))
+                if (GUILayout.Button("Create Pack Data", GUILayout.Width(110)))
                 {
                     string safe = SanitizePackName(_newPackName);
                     if (string.IsNullOrWhiteSpace(safe))
@@ -658,12 +659,25 @@ namespace ContentTools.Editor
                     {
                         using (new EditorGUILayout.HorizontalScope())
                         {
+                            // inside: using (new EditorGUILayout.HorizontalScope())  // the header row per pack
                             _selected[key] = EditorGUILayout.Toggle(_selected[key], GUILayout.Width(18));
-                            _foldouts[key] = EditorGUILayout.Foldout(_foldouts[key], p.name, true);
+                            _foldouts[key]  = EditorGUILayout.Foldout(_foldouts[key], p.name, true);
                             GUILayout.FlexibleSpace();
 
-                            if (GUILayout.Button("Generate Icons", GUILayout.Width(120)))
-                                GenerateIconsForPack(p);
+// NEW: Ping the pack asset in the Project window
+                            if (GUILayout.Button("PING", GUILayout.Width(70)))
+                            {
+                                EditorGUIUtility.PingObject(p);
+                                Selection.activeObject = p;
+                            }
+
+// Only show "Generate Icons" if the pack has any items
+                            bool hasItems = p._items != null && p._items.Any(x => x != null);
+                            if (hasItems)
+                            {
+                                if (GUILayout.Button("Generate Icons", GUILayout.Width(120)))
+                                    GenerateIconsForPack(p);
+                            }
 
                             if (GUILayout.Button("Delete", GUILayout.Width(70)))
                                 DeletePack(p);
@@ -1195,7 +1209,7 @@ namespace ContentTools.Editor
             _foldouts.Clear();
             _selected.Clear();
 
-            var guids = AssetDatabase.FindAssets("t:ContentPackDefinition", new[] { FORCED_PACKS_FOLDER });
+            var guids = AssetDatabase.FindAssets("t:ContentPackDefinition");
             foreach (var guid in guids)
             {
                 var path = AssetDatabase.GUIDToAssetPath(guid);
