@@ -114,9 +114,7 @@ MonoBehaviour:
     AppliesToBrand: 
     RequiredChildren:
     - FrontWheel_Anchor
-    - FrontWheel_Anchor/Front_Left_Hub_Guard_Anchor
     - FrontWheel_Anchor/Front_Left_Peg_Anchor
-    - FrontWheel_Anchor/Front_Right_Hub_Guard_Anchor
     - FrontWheel_Anchor/Front_Right_Peg_Anchor
     - Mesh
     RequiredPatterns: []
