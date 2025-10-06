@@ -56,7 +56,6 @@ namespace ContentTools.Editor
 
         private readonly List<ContentPackDefinition> _packs = new List<ContentPackDefinition>();
         private readonly Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
-        private readonly Dictionary<string, bool> _selected = new Dictionary<string, bool>();
 
         // NEW: foldout memory for the rules section grouped by SuperType
         private readonly Dictionary<string, bool> _rulesSuperFoldouts = new Dictionary<string, bool>();
@@ -75,13 +74,20 @@ namespace ContentTools.Editor
         private static bool _warnedNoRules;
 
         private static GUIStyle _helpWrap, _errStyle, _warnStyle, _miniHeader, _dropZoneStyle;
+
 // UI state: Build Output Target panel foldout (default open)
-private bool _targetFoldout = true;
+        private bool _targetFoldout = true;
 
 // Cache Steam library images (capsules/headers) by AppID
-private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary<long, Texture2D>();
+        private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary<long, Texture2D>();
         private bool _rulesFoldout = false;
         private Vector2 _scroll;
+
+        private const string HEADER_RESOURCE_NAME = "ContentManager_Header";
+        private Texture2D _headerTex;
+        
+// Footer (button bar) height
+        private const float FOOTER_H = 40f;
 
         [MenuItem("MashBox/Content Manager")]
         public static void Open()
@@ -91,6 +97,7 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
 
         private void OnEnable()
         {
+            _headerTex = Resources.Load<Texture2D>(HEADER_RESOURCE_NAME);
             _settings = AddressableAssetSettingsDefaultObject.Settings;
             _buildLocation = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, DefaultBuildFolderRel);
 
@@ -134,6 +141,41 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
 
             Repaint();
         }
+
+
+//  — smaller, tighter cap
+        private const float HEADER_MIN = 56f;
+        private const float HEADER_MAX = 80f;
+        private float _headerMeasuredH = 64f; 
+
+        private void DrawHeaderBanner()
+        {
+            if (_headerTex == null)
+                _headerTex = Resources.Load<Texture2D>(HEADER_RESOURCE_NAME);
+
+            if (_headerTex != null)
+            {
+                float vw = EditorGUIUtility.currentViewWidth;
+                float aspect = (float)_headerTex.height / Mathf.Max(1, _headerTex.width);
+                float desiredH = Mathf.Clamp(vw * aspect, HEADER_MIN, HEADER_MAX);
+
+                // This reserves layout height and returns the rect we draw into
+                Rect r = GUILayoutUtility.GetRect(GUIContent.none, GUIStyle.none,
+                    GUILayout.Height(desiredH), GUILayout.ExpandWidth(true));
+
+                _headerMeasuredH = r.height; // <-- cache the height layout actually used
+
+                // background + image + divider (unchanged)
+                var card = new Rect(r.x, r.y, r.width, r.height);
+                var cardCol = EditorGUIUtility.isProSkin ? new Color(1f,1f,1f,0.035f) : new Color(0f,0f,0f,0.05f);
+                EditorGUI.DrawRect(card, cardCol);
+                GUI.DrawTexture(card, _headerTex, ScaleMode.ScaleAndCrop, true);
+                var div = new Rect(card.x, card.yMax, card.width, 1f);
+                EditorGUI.DrawRect(div, EditorGUIUtility.isProSkin ? new Color(1,1,1,0.08f) : new Color(0,0,0,0.12f));
+            }
+        }
+
+
 
         private void RevalidateAllItems()
         {
@@ -188,21 +230,60 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
             return path.Replace("\\", "/");
         }
 
+        private Vector2 _mainScroll;
+
         private void OnGUI()
         {
-            using (new EditorGUILayout.VerticalScope())
+            // 1) Header (fixed, layout-managed)
+            DrawHeaderBanner();
+
+            // 2) Middle = one scroll, sized by remaining window height
+            float bodyH = Mathf.Max(0f, position.height - FOOTER_H - _headerMeasuredH);
+
+            using (var sv = new EditorGUILayout.ScrollViewScope(_mainScroll, GUILayout.Height(bodyH)))
             {
-                Header();
-                GUILayout.Space(6);
-                DrawRulesOverview();
-                GUILayout.Space(6);
-                DrawCreateSection();
-                GUILayout.Space(6);
-                DrawPacksList();
-                GUILayout.Space(8);
-                DrawBuildRow();
+                _mainScroll = sv.scrollPosition;
+
+                using (new EditorGUILayout.VerticalScope())
+                {
+                    Header();
+                    GUILayout.Space(6);
+
+                    // Validation Rules auto-expands (no inner scroll)
+                    DrawRulesOverview();
+                    GUILayout.Space(6);
+
+                    DrawCreateSection();
+                    GUILayout.Space(6);
+
+                    // Ensure DrawPacksList() has no inner ScrollViewScope
+                    DrawPacksList();
+                    GUILayout.Space(8);
+                    
+                    // 👇 NEW: bottom spacer so the last items don’t sit under the footer
+                    GUILayout.Space(FOOTER_H + 8f);
+                }
+            }
+
+            // 3) Footer (fixed): draw in a bottom area so it never scrolls
+            var footerRect = new Rect(0, position.height - FOOTER_H, position.width, FOOTER_H);
+            using (new GUILayout.AreaScope(footerRect))
+            {
+                // (optional) subtle bg + divider
+                //if (Event.current.type == EventType.Repaint)
+                //{
+                //    var bg = EditorGUIUtility.isProSkin ? new Color(1,1,1,0.035f) : new Color(0,0,0,0.06f);
+                //    EditorGUI.DrawRect(new Rect(0,0,footerRect.width,footerRect.height), bg);
+                //    EditorGUI.DrawRect(new Rect(0,0,footerRect.width,1f),
+                //        EditorGUIUtility.isProSkin ? new Color(1,1,1,0.08f) : new Color(0,0,0,0.12f));
+                //}
+
+                GUILayout.Space(4);
+                //DrawBuildRow(); // your centered, larger buttons
+                GUILayout.Space(2);
             }
         }
+
 
         private void Header()
         {
@@ -212,21 +293,24 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
                 _errStyle = new GUIStyle(EditorStyles.boldLabel);
                 _errStyle.normal.textColor = new Color(.9f, 0.25f, .25f);
             }
+
             if (_warnStyle == null)
             {
                 _warnStyle = new GUIStyle(EditorStyles.label);
                 _warnStyle.normal.textColor = new Color(1f, 0.5f, 0f);
             }
+
             if (_miniHeader == null)
                 _miniHeader = new GUIStyle(EditorStyles.miniBoldLabel) { alignment = TextAnchor.MiddleLeft };
             if (_dropZoneStyle == null)
             {
-                _dropZoneStyle = new GUIStyle(EditorStyles.helpBox) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic };
+                _dropZoneStyle = new GUIStyle(EditorStyles.helpBox)
+                    { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic };
                 _dropZoneStyle.normal.textColor = new Color(0.75f, 0.75f, 0.75f);
             }
 
-            EditorGUILayout.LabelField("Content Manager", EditorStyles.boldLabel);
-            GUILayout.Space(4);
+           // EditorGUILayout.LabelField("Content Manager", EditorStyles.boldLabel);
+            //GUILayout.Space(4);
 
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
@@ -269,11 +353,10 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
                             var imgRect = GUILayoutUtility.GetRect(96, 48, GUILayout.Width(96), GUILayout.Height(48));
                             if (Event.current.type == EventType.Repaint)
                             {
-                                var bg = isActive
-                                    ? new Color(0.15f, 0.5f, 0.15f, 0.15f)
+                                var bg = isActive ? new Color(0, 0, 0, 0.14f)
                                     : (EditorGUIUtility.isProSkin
-                                        ? new Color(1, 1, 1, 0.04f)
-                                        : new Color(0, 0, 0, 0.05f));
+                                        ? new Color(1, 1, 1, 0.00f)
+                                        : new Color(0, 0, 0, 0.00f));
                                 EditorGUI.DrawRect(imgRect, bg);
                             }
 
@@ -315,7 +398,8 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
                             {
                                 using (new EditorGUI.DisabledScope(!detected))
                                 {
-                                    if (GUILayout.Button(isActive ? "Re-set Target" : "Set Target",
+                                    if(!isActive)
+                                    if (GUILayout.Button(isActive ? "Re-set Target" : "Set Game",
                                             GUILayout.MinWidth(110), GUILayout.Height(22)))
                                     {
                                         var sa = StreamingAssetsResolver.TryResolve(install);
@@ -476,7 +560,7 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
                 //    EditorGUILayout.HelpBox("Builds will be written under the selected game's StreamingAssets folder.", MessageType.None);
                 //}
             }
-}
+        }
 
         private void DrawCreateSection()
         {
@@ -568,15 +652,17 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
 
         // Scroll position for the Part Hierarchy Rules panel
         private Vector2 _rulesHierarchyScroll;
+        
 
-// Tweak this if you want a taller/shorter panel
-        private const float RULES_HIERARCHY_MAX_HEIGHT = 320f;
+// Subsection foldouts
+        private bool _allowedPairsFoldout = true;
+        private bool _colorsFoldout = true;
 
         private void DrawRulesOverview()
         {
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                _rulesFoldout = EditorGUILayout.Foldout(_rulesFoldout, "Validation Rules (read-only)", true);
+                _rulesFoldout = EditorGUILayout.Foldout(_rulesFoldout, "Validation Rules", true);
                 if (!_rulesFoldout) return;
 
                 if (_rules == null)
@@ -596,119 +682,109 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
 
                 EditorGUILayout.Space(3);
 
-                // --- Allowed Pairs ---
-                EditorGUILayout.LabelField("Allowed Pairs (SuperType → Types)", _miniHeader);
-                if (_rules.AllowedPairs != null && _rules.AllowedPairs.Count > 0)
+                // --- Allowed Pairs (foldout, expands naturally) ---
+                _allowedPairsFoldout =
+                    EditorGUILayout.Foldout(_allowedPairsFoldout, "Allowed Pairs (SuperType → Types)", true);
+                if (_allowedPairsFoldout)
                 {
-                    foreach (var pair in _rules.AllowedPairs)
+                    if (_rules.AllowedPairs != null && _rules.AllowedPairs.Count > 0)
                     {
-                        if (pair == null) continue;
-                        var types = (pair.Types != null && pair.Types.Length > 0)
-                            ? string.Join(", ", pair.Types)
-                            : "<none>";
-                        DrawWrappedLine($"• {pair.SuperType} → {types}", leftPadding: 16f);
+                        foreach (var pair in _rules.AllowedPairs)
+                        {
+                            if (pair == null) continue;
+                            var types = (pair.Types != null && pair.Types.Length > 0)
+                                ? string.Join(", ", pair.Types)
+                                : "<none>";
+                            DrawWrappedLine($"• {pair.SuperType} → {types}", leftPadding: 16f);
+                        }
+                    }
+                    else
+                    {
+                        DrawWrappedLine("<none>", leftPadding: 16f);
                     }
                 }
-                else
+
+                EditorGUILayout.Space(3);
+
+                // --- Colors (foldout, expands naturally) ---
+                _colorsFoldout = EditorGUILayout.Foldout(_colorsFoldout, "Colors", true);
+                if (_colorsFoldout)
                 {
-                    DrawWrappedLine("<none>", leftPadding: 16f);
+                    if (_rules.Colors != null && _rules.Colors.Length > 0)
+                        EditorGUILayout.LabelField(string.Join(", ", _rules.Colors));
+                    else
+                        EditorGUILayout.LabelField("<none>");
                 }
 
                 EditorGUILayout.Space(3);
 
-                // --- Colors ---
-                EditorGUILayout.LabelField("Colors", _miniHeader);
-                if (_rules.Colors != null && _rules.Colors.Length > 0)
-                    EditorGUILayout.LabelField(string.Join(", ", _rules.Colors));
-                else
-                    EditorGUILayout.LabelField("<none>");
-
-                EditorGUILayout.Space(3);
-
-                // === Part Hierarchy Rules (scrollable; foldable per SuperType → Type → Brand) ===
+                // --- Part Hierarchy Rules (NO inner scroll; expands with content) ---
                 EditorGUILayout.LabelField("Part Hierarchy Rules", _miniHeader);
 
-                using (var sv = new EditorGUILayout.ScrollViewScope(
-                           _rulesHierarchyScroll, GUILayout.MaxHeight(RULES_HIERARCHY_MAX_HEIGHT)))
+                if (_rules.AnchorRules != null && _rules.AnchorRules.Count > 0)
                 {
-                    _rulesHierarchyScroll = sv.scrollPosition;
+                    var grouped = _rules.AnchorRules
+                        .Where(r => r != null)
+                        .GroupBy(r => string.IsNullOrEmpty(r.AppliesToSuperType) ? "*" : r.AppliesToSuperType)
+                        .OrderBy(g => g.Key);
 
-                    if (_rules.AnchorRules != null && _rules.AnchorRules.Count > 0)
+                    foreach (var g in grouped)
                     {
-                        var grouped = _rules.AnchorRules
-                            .Where(r => r != null)
-                            .GroupBy(r => string.IsNullOrEmpty(r.AppliesToSuperType) ? "*" : r.AppliesToSuperType)
-                            .OrderBy(g => g.Key);
+                        var superKey = g.Key;
+                        var foldKey = $"rules.super.{superKey}";
+                        if (!_rulesSuperFoldouts.ContainsKey(foldKey))
+                            _rulesSuperFoldouts[foldKey] = false;
 
-                        foreach (var g in grouped)
+                        _rulesSuperFoldouts[foldKey] = EditorGUILayout.Foldout(
+                            _rulesSuperFoldouts[foldKey],
+                            $"{superKey}  ({g.Count()} rule{(g.Count() == 1 ? "" : "s")})",
+                            true);
+
+                        if (!_rulesSuperFoldouts[foldKey]) continue;
+
+                        var byType = g.GroupBy(r => string.IsNullOrEmpty(r.AppliesToType) ? "*" : r.AppliesToType)
+                            .OrderBy(x => x.Key);
+
+                        foreach (var typeGroup in byType)
                         {
-                            var superKey = g.Key;
-                            var foldKey = $"rules.super.{superKey}";
-                            if (!_rulesSuperFoldouts.ContainsKey(foldKey))
-                                _rulesSuperFoldouts[foldKey] = false;
+                            var typeKey = typeGroup.Key;
+                            var typeFoldKey = $"{foldKey}.type.{typeKey}";
+                            if (!_rulesRuleFoldouts.ContainsKey(typeFoldKey))
+                                _rulesRuleFoldouts[typeFoldKey] = true;
 
-                            _rulesSuperFoldouts[foldKey] = EditorGUILayout.Foldout(
-                                _rulesSuperFoldouts[foldKey],
-                                $"{superKey}  ({g.Count()} rule{(g.Count() == 1 ? "" : "s")})",
-                                true);
+                            if (!_rulesRuleFoldouts[typeFoldKey]) continue;
 
-                            if (!_rulesSuperFoldouts[foldKey]) continue;
-
-                            // Group by Type under each SuperType
-                            //EditorGUI.indentLevel++;
-                            var byType = g.GroupBy(r => string.IsNullOrEmpty(r.AppliesToType) ? "*" : r.AppliesToType)
-                                .OrderBy(x => x.Key);
-
-                            foreach (var typeGroup in byType)
+                            EditorGUI.indentLevel++;
+                            foreach (var r in typeGroup.OrderBy(r => r.AppliesToBrand))
                             {
-                                var typeKey = typeGroup.Key;
-                                var typeFoldKey = $"{foldKey}.type.{typeKey}";
-                                if (!_rulesRuleFoldouts.ContainsKey(typeFoldKey))
-                                    _rulesRuleFoldouts[typeFoldKey] = true;
+                                string brandTok = string.IsNullOrEmpty(r.AppliesToBrand) ? "*" : r.AppliesToBrand;
+                                string ruleFoldKey = $"{typeFoldKey}.brand.{brandTok}";
+                                if (!_rulesRuleFoldouts.ContainsKey(ruleFoldKey))
+                                    _rulesRuleFoldouts[ruleFoldKey] = false;
 
-                                //_rulesRuleFoldouts[typeFoldKey] = EditorGUILayout.Foldout(
-                                //    _rulesRuleFoldouts[typeFoldKey],
-                                //    $"[{superKey}/{typeKey}]",
-                                //    true);
-
-                                if (!_rulesRuleFoldouts[typeFoldKey]) continue;
-
-                                // List Brand-scoped rules under this Type
-                                EditorGUI.indentLevel++;
-                                foreach (var r in typeGroup.OrderBy(r => r.AppliesToBrand))
+                                using (new EditorGUILayout.HorizontalScope())
                                 {
-                                    string brandTok = string.IsNullOrEmpty(r.AppliesToBrand) ? "*" : r.AppliesToBrand;
-                                    string ruleFoldKey = $"{typeFoldKey}.brand.{brandTok}";
-                                    if (!_rulesRuleFoldouts.ContainsKey(ruleFoldKey))
-                                        _rulesRuleFoldouts[ruleFoldKey] = false;
+                                    _rulesRuleFoldouts[ruleFoldKey] = EditorGUILayout.Foldout(
+                                        _rulesRuleFoldouts[ruleFoldKey],
+                                        $"[{superKey}_{typeKey}]",
+                                        true);
+                                }
 
-                                    using (new EditorGUILayout.HorizontalScope())
-                                    {
-                                        _rulesRuleFoldouts[ruleFoldKey] = EditorGUILayout.Foldout(
-                                            _rulesRuleFoldouts[ruleFoldKey],
-                                            $"[{superKey}_{typeKey}]",
-                                            true);
-                                    }
+                                if (!_rulesRuleFoldouts[ruleFoldKey]) continue;
 
-                                    if (!_rulesRuleFoldouts[ruleFoldKey]) continue;
+                                EditorGUI.indentLevel++;
+                                var tree = BuildRuleTree(r);
+                                bool hasAny =
+                                    (r.RequiredChildren != null && r.RequiredChildren.Length > 0) ||
+                                    (r.RequiredPatterns != null && r.RequiredPatterns.Length > 0);
 
-                                    // Draw the hierarchy as a tree for this rule
-                                    EditorGUI.indentLevel++;
-                                    var tree = BuildRuleTree(r);
-                                    bool hasAny =
-                                        (r.RequiredChildren != null && r.RequiredChildren.Length > 0) ||
-                                        (r.RequiredPatterns != null && r.RequiredPatterns.Length > 0);
-
-                                    if (!hasAny)
-                                    {
-                                        EditorGUILayout.LabelField("└─ <none>", EditorStyles.miniLabel);
-                                    }
-                                    else
-                                    {
-                                        DrawRuleTree(tree);
-                                    }
-
-                                    EditorGUI.indentLevel--;
+                                if (!hasAny)
+                                {
+                                    EditorGUILayout.LabelField("└─ <none>", EditorStyles.miniLabel);
+                                }
+                                else
+                                {
+                                    DrawRuleTree(tree);
                                 }
 
                                 EditorGUI.indentLevel--;
@@ -717,12 +793,14 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
                             EditorGUI.indentLevel--;
                         }
                     }
-                    else
-                    {
-                        EditorGUILayout.LabelField("<none>");
-                    }
+                }
+                else
+                {
+                    EditorGUILayout.LabelField("<none>");
                 }
             }
+
+            EditorGUI.indentLevel = 0;
         }
 
 
@@ -881,9 +959,9 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
 
         private void DrawPacksList()
         {
-            using (var scroll = new EditorGUILayout.ScrollViewScope(_scroll))
+            //using (var scroll = new EditorGUILayout.ScrollViewScope(_scroll))
             {
-                _scroll = scroll.scrollPosition;
+                //_scroll = scroll.scrollPosition;
 
                 if (_packs.Count == 0)
                 {
@@ -899,18 +977,33 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
                     if (string.IsNullOrEmpty(key)) continue;
 
                     if (!_foldouts.ContainsKey(key)) _foldouts[key] = true;
-                    if (!_selected.ContainsKey(key)) _selected[key] = true;
+                    
 
                     using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
                     {
                         using (new EditorGUILayout.HorizontalScope())
                         {
-                            // inside: using (new EditorGUILayout.HorizontalScope())  // the header row per pack
-                            _selected[key] = EditorGUILayout.Toggle(_selected[key], GUILayout.Width(18));
                             _foldouts[key] = EditorGUILayout.Foldout(_foldouts[key], p.name, true);
                             GUILayout.FlexibleSpace();
 
-// NEW: Ping the pack asset in the Project window
+// Build this single pack
+                            if (GUILayout.Button("Build", GUILayout.Width(80)))
+                            {
+                                // Validate this pack before building
+                                var issues = ValidatePack(p, _rules);
+                                if (issues.Any(i => i.severity == ContentPackValidator.Severity.Error))
+                                {
+                                    ContentPackValidator.LogReport(p, issues, "Build blocked");
+                                    EditorUtility.DisplayDialog("Build blocked",
+                                        $"'{p.name}' has validation errors. See Console.", "OK");
+                                }
+                                else
+                                {
+                                    BuildPacks(new List<ContentPackDefinition> { p }, cleanMissing: true);
+                                }
+                            }
+
+// Ping the pack asset in the Project window
                             if (GUILayout.Button("PING", GUILayout.Width(70)))
                             {
                                 EditorGUIUtility.PingObject(p);
@@ -927,6 +1020,7 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
 
                             if (GUILayout.Button("Delete", GUILayout.Width(70)))
                                 DeletePack(p);
+
                         }
 
 
@@ -1028,51 +1122,12 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
         {
             using (new EditorGUILayout.HorizontalScope())
             {
-                if (GUILayout.Button("Build Selected", GUILayout.Width(120)))
+                using (new EditorGUILayout.HorizontalScope())
                 {
-                    var toBuild = _packs.Where(p =>
-                        p != null && _selected.TryGetValue(AssetDatabase.GetAssetPath(p), out var sel) && sel).ToList();
-                    if (toBuild.Count == 0)
+                    if (GUILayout.Button("Refresh", GUILayout.Width(90)))
                     {
-                        EditorUtility.DisplayDialog("Nothing Selected", "Select one or more packs to build.", "OK");
-                        return;
+                        RefreshPacks();
                     }
-
-                    foreach (var pack in toBuild)
-                    {
-                        var issues = ValidatePack(pack, _rules);
-                        if (issues.Any(i => i.severity == ContentPackValidator.Severity.Error))
-                        {
-                            ContentPackValidator.LogReport(pack, issues, "Build blocked");
-                            EditorUtility.DisplayDialog("Build blocked",
-                                $"'{pack.name}' has validation errors. See Console.", "OK");
-                            return;
-                        }
-                    }
-
-                    BuildPacks(toBuild, cleanMissing: true);
-                }
-
-                if (GUILayout.Button("Build All", GUILayout.Width(90)))
-                {
-                    foreach (var pack in _packs)
-                    {
-                        var issues = ValidatePack(pack, _rules);
-                        if (issues.Any(i => i.severity == ContentPackValidator.Severity.Error))
-                        {
-                            ContentPackValidator.LogReport(pack, issues, "Build blocked");
-                            EditorUtility.DisplayDialog("Build blocked",
-                                $"'{pack.name}' has validation errors. See Console.", "OK");
-                            return;
-                        }
-                    }
-
-                    BuildPacks(_packs.ToList(), cleanMissing: true);
-                }
-
-                if (GUILayout.Button("Refresh", GUILayout.Width(90)))
-                {
-                    RefreshPacks();
                 }
             }
         }
@@ -1453,7 +1508,6 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
         {
             _packs.Clear();
             _foldouts.Clear();
-            _selected.Clear();
 
             var guids = AssetDatabase.FindAssets("t:ContentPackDefinition");
             foreach (var guid in guids)
@@ -1826,7 +1880,11 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
             string hit = null;
             foreach (var p in candidates)
             {
-                if (System.IO.File.Exists(p)) { hit = p; break; }
+                if (System.IO.File.Exists(p))
+                {
+                    hit = p;
+                    break;
+                }
             }
 
             if (hit == null)
@@ -1836,7 +1894,8 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
                     var files = System.IO.Directory.GetFiles(libCache, "*.*", SearchOption.TopDirectoryOnly);
                     foreach (var f in files)
                     {
-                        if (!(f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) || f.EndsWith(".png", StringComparison.OrdinalIgnoreCase)))
+                        if (!(f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                              f.EndsWith(".png", StringComparison.OrdinalIgnoreCase)))
                             continue;
                         var name = System.IO.Path.GetFileNameWithoutExtension(f);
                         if (name != null && name.Contains(appId.ToString()))
@@ -1846,13 +1905,22 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
                         }
                     }
                 }
-                catch {}
+                catch
+                {
+                }
             }
 
             if (string.IsNullOrEmpty(hit)) return null;
 
             byte[] bytes = null;
-            try { bytes = System.IO.File.ReadAllBytes(hit); } catch {}
+            try
+            {
+                bytes = System.IO.File.ReadAllBytes(hit);
+            }
+            catch
+            {
+            }
+
             if (bytes == null) return null;
 
             var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
@@ -1861,7 +1929,7 @@ private readonly Dictionary<long, Texture2D> _steamCapsuleCache = new Dictionary
             _steamCapsuleCache[appId] = tex;
             return tex;
         }
-    
+
 
     }
 }
