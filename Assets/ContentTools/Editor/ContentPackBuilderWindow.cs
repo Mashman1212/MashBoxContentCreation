@@ -392,7 +392,7 @@ namespace ContentTools.Editor
                             }
 
                             GUILayout.FlexibleSpace();
-
+//
                             // Wide layout: keep buttons on the same row
                             if (!narrow)
                             {
