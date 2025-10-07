@@ -17,7 +17,7 @@ namespace ContentTools.Maching
         private MachVehicle[] sceneVehicles;
         private double lastVehicleScanTime;
 
-        [MenuItem("Tools/Mach Equip Manager")]
+        [MenuItem("MashBox/Mach Equip Manager")]
         public static void ShowWindow() => GetWindow<MachEquipManagerWindow>("Mach Equip Manager");
 
         private void OnEnable()
