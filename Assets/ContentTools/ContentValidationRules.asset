@@ -86,6 +86,8 @@ MonoBehaviour:
     - Griptape
     - Headset_Anchor
     - RearWheel_Anchor
+    - RearWheel_Anchor/Rear_Left_Peg_Anchor
+    - RearWheel_Anchor/Rear_Right_Peg_Anchor
     - Mesh
     RequiredPatterns: []
   - AppliesToSuperType: Scooter
