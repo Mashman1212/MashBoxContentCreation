@@ -28,7 +28,13 @@ namespace ContentTools
         private bool autoSyncOnValidate = true;
         
         public string modioUserToken;
+        [Header("Metadata")]
+        [Tooltip("Short description or summary for this content pack (shown on mod.io).")]
+        [TextArea(2, 5)]
+        public string summary;
 
+        [Tooltip("Main screenshot image for this pack (required 1920x1080).")]
+        public Texture2D mainScreenshot;
 
         // ---------------- Editor-only sync logic ----------------
 

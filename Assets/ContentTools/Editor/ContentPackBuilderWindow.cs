@@ -71,7 +71,7 @@ namespace ContentTools.Editor
         
         private readonly List<ContentPackDefinition> _packs = new List<ContentPackDefinition>();
         private readonly Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
-
+        private Dictionary<string, bool> _metaFoldouts = new Dictionary<string, bool>();
         // NEW: foldout memory for the rules section grouped by SuperType
         private readonly Dictionary<string, bool> _rulesSuperFoldouts = new Dictionary<string, bool>();
 
@@ -1066,7 +1066,7 @@ namespace ContentTools.Editor
 
                                 if (GUILayout.Button($"Publish to {currentGame} Mod.io", GUILayout.Width(190)))
                                 {
-                                    // 🧩 Don't allow publishing empty packs
+                                    // 🧩 Validation: must have content
                                     if (p._items == null || p._items.Count == 0)
                                     {
                                         EditorUtility.DisplayDialog(
@@ -1075,14 +1075,57 @@ namespace ContentTools.Editor
                                             "You must add content before publishing to Mod.io.",
                                             "OK"
                                         );
-                                        Debug.LogWarning($"[ContentPackBuilder] Attempted to publish empty pack '{p.name}'.");
+                                        Debug.LogWarning(
+                                            $"[ContentPackBuilder] Attempted to publish empty pack '{p.name}'.");
                                         return;
                                     }
 
-                                    // 🧠 Confirmation popup (your custom text)
+                                    // 🧩 Validation: must have summary
+                                    if (string.IsNullOrWhiteSpace(p.summary))
+                                    {
+                                        EditorUtility.DisplayDialog(
+                                            "Missing Summary",
+                                            $"This content pack '{p.name}' does not have a summary.\n\n" +
+                                            "A summary is required before publishing to Mod.io.",
+                                            "OK"
+                                        );
+                                        Debug.LogWarning($"[ContentPackBuilder] Missing summary for '{p.name}'.");
+                                        return;
+                                    }
+
+                                    // 🧩 Validation: must have main screenshot (1920x1080)
+                                    if (p.mainScreenshot == null)
+                                    {
+                                        EditorUtility.DisplayDialog(
+                                            "Missing Screenshot",
+                                            $"This content pack '{p.name}' does not have a main screenshot.\n\n" +
+                                            "A 1920×1080 image is required before publishing to Mod.io.",
+                                            "OK"
+                                        );
+                                        Debug.LogWarning($"[ContentPackBuilder] Missing screenshot for '{p.name}'.");
+                                        return;
+                                    }
+
+                                    string path = AssetDatabase.GetAssetPath(p.mainScreenshot);
+                                    var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+                                    if (tex == null || tex.width != 1920 || tex.height != 1080)
+                                    {
+                                        EditorUtility.DisplayDialog(
+                                            "Invalid Screenshot Size",
+                                            $"Screenshot for '{p.name}' must be exactly 1920×1080.\n\n" +
+                                            $"Current size: {(tex != null ? $"{tex.width}×{tex.height}" : "Unknown")}",
+                                            "OK"
+                                        );
+                                        Debug.LogWarning(
+                                            $"[ContentPackBuilder] Invalid screenshot size for '{p.name}'.");
+                                        return;
+                                    }
+
+                                    // 🧠 Confirmation popup
                                     bool confirm = EditorUtility.DisplayDialog(
                                         "Confirm Mod.io Publish",
-                                        $"Are you sure you want to publish this pack to {currentGame} Mod.io?",
+                                        $"Are you sure you want to publish this pack to {currentGame} Mod.io?\n\n" +
+                                        "This will attach your Mod.io user token to the pack definition.",
                                         "Yes, Publish",
                                         "Cancel"
                                     );
@@ -1095,13 +1138,22 @@ namespace ContentTools.Editor
                                         p.modioUserToken = token;
                                         EditorUtility.SetDirty(p);
                                         AssetDatabase.SaveAssets();
-                                        
+
+                                        Debug.Log(
+                                            $"[ContentPackBuilder] Stored Mod.io user token on pack '{p.name}' for {currentGame}.");
+                                        EditorUtility.DisplayDialog(
+                                            "Token Stored",
+                                            $"Mod.io user token stored in '{p.name}' for {currentGame}.",
+                                            "OK"
+                                        );
                                     }
                                     else
                                     {
-                                        Debug.Log($"[ContentPackBuilder] Publish to Mod.io for '{p.name}' cancelled by user.");
+                                        Debug.Log(
+                                            $"[ContentPackBuilder] Publish to Mod.io for '{p.name}' cancelled by user.");
                                     }
                                 }
+
                             }
                             else
                             {
@@ -1136,6 +1188,140 @@ namespace ContentTools.Editor
                             {
 
                                 EditorGUI.indentLevel++;
+                                
+                                // === Pack Metadata foldout ===
+                                string metaKey = p.name + "_meta";
+                                if (!_metaFoldouts.ContainsKey(metaKey))
+                                    _metaFoldouts[metaKey] = false;
+
+                                _metaFoldouts[metaKey] = EditorGUILayout.Foldout(_metaFoldouts[metaKey], "Pack Metadata", true);
+
+                                if (_metaFoldouts[metaKey])
+                                {
+                                    using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                                    {
+                                        EditorGUI.indentLevel++;
+
+                                        // Summary
+                                        EditorGUI.BeginChangeCheck();
+                                        EditorGUILayout.LabelField("Summary");
+                                        string newSummary = EditorGUILayout.TextArea(p.summary, GUILayout.MinHeight(40));
+                                        if (EditorGUI.EndChangeCheck())
+                                        {
+                                            Undo.RecordObject(p, "Edit Pack Summary");
+                                            p.summary = newSummary;
+                                            EditorUtility.SetDirty(p);
+                                        }
+
+                                        // Screenshot
+                                        EditorGUI.BeginChangeCheck();
+// === Screenshot Preview ===
+EditorGUILayout.LabelField("Main Screenshot (1920x1080)", EditorStyles.boldLabel);
+
+Rect previewRect = GUILayoutUtility.GetRect(200, 120, GUILayout.ExpandWidth(true));
+GUIStyle boxStyle = new GUIStyle(GUI.skin.box)
+{
+    alignment = TextAnchor.MiddleCenter,
+    normal = { textColor = Color.gray }
+};
+
+// Handle image assignment
+if (p.mainScreenshot == null)
+{
+    GUI.Box(previewRect, "Drop Image Here\n(1920×1080 required)", boxStyle);
+    var dropEvt = Event.current;
+    if (dropEvt.type == EventType.DragUpdated || dropEvt.type == EventType.DragPerform)
+    {
+        if (previewRect.Contains(dropEvt.mousePosition))
+        {
+            DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+
+            if (dropEvt.type == EventType.DragPerform)
+            {
+                DragAndDrop.AcceptDrag();
+                foreach (var obj in DragAndDrop.objectReferences)
+                {
+                    if (obj is Texture2D tex)
+                    {
+                        Undo.RecordObject(p, "Assign Main Screenshot");
+                        p.mainScreenshot = tex;
+                        EditorUtility.SetDirty(p);
+                        break;
+                    }
+                }
+            }
+            dropEvt.Use();
+        }
+    }
+}
+else
+{
+    // Draw the image with proper aspect
+    Texture2D tex = p.mainScreenshot;
+    Rect imgRect = new Rect(previewRect.x + 4, previewRect.y + 4, previewRect.width - 8, previewRect.height - 8);
+    GUI.DrawTexture(imgRect, tex, ScaleMode.ScaleToFit);
+    GUI.Box(previewRect, GUIContent.none);
+
+    // Dimension validation
+    if (tex.width != 1920 || tex.height != 1080)
+    {
+        EditorGUILayout.HelpBox(
+            $"⚠️ Image is {tex.width}×{tex.height}. Required size is 1920×1080.",
+            MessageType.Warning
+        );
+    }
+
+    // Allow reassigning / clearing
+    using (new GUILayout.HorizontalScope())
+    {
+        if (GUILayout.Button("Change Screenshot", GUILayout.Width(150)))
+        {
+            var newTex = (Texture2D)EditorGUILayout.ObjectField(p.mainScreenshot, typeof(Texture2D), false);
+            if (newTex != null && newTex != p.mainScreenshot)
+            {
+                Undo.RecordObject(p, "Change Main Screenshot");
+                p.mainScreenshot = newTex;
+                EditorUtility.SetDirty(p);
+            }
+        }
+
+        if (GUILayout.Button("Clear", GUILayout.Width(70)))
+        {
+            Undo.RecordObject(p, "Clear Main Screenshot");
+            p.mainScreenshot = null;
+            EditorUtility.SetDirty(p);
+        }
+    }
+}
+
+                                        //if (EditorGUI.EndChangeCheck())
+                                        //{
+                                        //    Undo.RecordObject(p, "Change Main Screenshot");
+                                        //    p.mainScreenshot = newShot;
+                                        //    EditorUtility.SetDirty(p);
+                                        //}
+
+                                        // Validate image dimensions
+                                        if (p.mainScreenshot != null)
+                                        {
+                                            string path = AssetDatabase.GetAssetPath(p.mainScreenshot);
+                                            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+                                            if (tex != null && (tex.width != 1920 || tex.height != 1080))
+                                            {
+                                                EditorGUILayout.HelpBox(
+                                                    $"⚠️ Image is {tex.width}×{tex.height}. Required size is 1920×1080.",
+                                                    MessageType.Warning
+                                                );
+                                            }
+                                        }
+
+                                        EditorGUI.indentLevel--;
+                                    }
+                                }
+
+
+                                
+                                
                                 // Items list with inline validation
                                 if (p._items != null && p._items.Count > 0)
                                 {
