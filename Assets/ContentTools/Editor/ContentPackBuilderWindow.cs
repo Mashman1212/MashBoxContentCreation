@@ -1164,10 +1164,6 @@ namespace ContentTools.Editor
                                         // 2) Build + upload
                                         try
                                         {
-                                            EditorUtility.DisplayProgressBar("Publish to Mod.io", "Exporting…", 0.3f);
-                                            var packagePath = ExportUnityPackage(p);  // builds items+deps+screenshot+icons
-
-                                            EditorUtility.DisplayProgressBar("Publish to Mod.io", "Requesting upload URL…", 0.6f);
                                             PublishToModioAsync(p, currentGame);
                                         }
                                         catch (System.Exception ex)
