@@ -427,6 +427,8 @@ namespace ContentTools.Editor
                                     EditorGUILayout.LabelField(status, statusStyle, GUILayout.Width(100));
                                     if (isActive)
                                     {
+                                        EditorPrefs.SetString("ModIo.ApiBase", g.ModIoApiBase);
+                                        EditorPrefs.SetString("ModIo.CurrentGame", g.DisplayName);
                                         var activeStyle = new GUIStyle(EditorStyles.miniBoldLabel);
                                         activeStyle.normal.textColor = Color.green;
                                         EditorGUILayout.LabelField("✓ Active target", activeStyle);
