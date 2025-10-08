@@ -9,6 +9,9 @@ using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
 using System.IO;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
 
 using Content_Icon_Capture.Editor;
 using Debug = UnityEngine.Debug;
@@ -39,15 +42,15 @@ namespace ContentTools.Editor
 
         private static readonly AllowedGame[] ALLOWED_GAMES = new[]
         {
-            new AllowedGame 
-            { 
-                DisplayName = "BMXS", 
+            new AllowedGame
+            {
+                DisplayName = "BMXS",
                 SteamAppId = 871540,
                 ModIoApiBase = "https://g-10073.modapi.io/v1"
             },
             new AllowedGame
             {
-                DisplayName = "ScootX", 
+                DisplayName = "ScootX",
                 SteamAppId = 3800340,
                 ModIoApiBase = "https://g-2835.modapi.io/v1"
             },
@@ -67,11 +70,24 @@ namespace ContentTools.Editor
         private const string PREF_KEY_BUILD_LOCATION = "ContentPackBuilder.BuildLocation";
 
         private const string PREF_KEY_PROXY_BASE = "ModIo.ProxyBase";
-        private const string DEFAULT_PROXY_BASE  = "https://modio-proxy-cgf2e7hvc6fggsh6.centralus-01.azurewebsites.net/modio";
-        
+
+        private const string DEFAULT_PROXY_BASE =
+            "https://modio-proxy-cgf2e7hvc6fggsh6.centralus-01.azurewebsites.net/modio";
+
+        private const string UGC_REQUEST_PATH = "/ugc/request-upload";
+
+        private static string ProxyHostBase => EditorPrefs.GetString(PREF_KEY_PROXY_BASE, DEFAULT_PROXY_BASE)
+            .TrimEnd('/').Replace("/modio", "");
+
+        private static string UploaderEndpoint => ProxyHostBase + UGC_REQUEST_PATH;
+
+
+
         private readonly List<ContentPackDefinition> _packs = new List<ContentPackDefinition>();
         private readonly Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
+
         private Dictionary<string, bool> _metaFoldouts = new Dictionary<string, bool>();
+
         // NEW: foldout memory for the rules section grouped by SuperType
         private readonly Dictionary<string, bool> _rulesSuperFoldouts = new Dictionary<string, bool>();
 
@@ -100,7 +116,7 @@ namespace ContentTools.Editor
 
         private const string HEADER_RESOURCE_NAME = "ContentManager_Header";
         private Texture2D _headerTex;
-        
+
 // Footer (button bar) height
         private const float FOOTER_H = 40f;
 
@@ -108,7 +124,7 @@ namespace ContentTools.Editor
         public static void Open()
         {
             GetWindow<ContentPackBuilderWindow>(true, "MG Content Manager");
-            
+
             EditorPrefs.SetString(PREF_KEY_PROXY_BASE, DEFAULT_PROXY_BASE);
         }
 
@@ -117,8 +133,8 @@ namespace ContentTools.Editor
             _headerTex = Resources.Load<Texture2D>(HEADER_RESOURCE_NAME);
             _settings = AddressableAssetSettingsDefaultObject.Settings;
             _buildLocation = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, DefaultBuildFolderRel);
-          
-            
+
+
             _lastChosenAppId = long.TryParse(EditorPrefs.GetString(PREF_KEY_LAST_APP, "0"), out var v) ? v : 0;
 
             // If there isn't one saved yet, default to Assets/StreamingAssets/Addressables/Customization
@@ -133,9 +149,9 @@ namespace ContentTools.Editor
 
             AutoLoadRulesIfNeeded();
             RefreshPacks();
-            
+
             CleanAddressableData();
-            
+
             EditorApplication.projectChanged += OnProjectChanged;
 
             RevalidateAllItems();
@@ -167,7 +183,7 @@ namespace ContentTools.Editor
 //  — smaller, tighter cap
         private const float HEADER_MIN = 56f;
         private const float HEADER_MAX = 80f;
-        private float _headerMeasuredH = 64f; 
+        private float _headerMeasuredH = 64f;
 
         private void DrawHeaderBanner()
         {
@@ -188,11 +204,12 @@ namespace ContentTools.Editor
 
                 // background + image + divider (unchanged)
                 var card = new Rect(r.x, r.y, r.width, r.height);
-                var cardCol = EditorGUIUtility.isProSkin ? new Color(1f,1f,1f,0.035f) : new Color(0f,0f,0f,0.05f);
+                var cardCol = EditorGUIUtility.isProSkin ? new Color(1f, 1f, 1f, 0.035f) : new Color(0f, 0f, 0f, 0.05f);
                 EditorGUI.DrawRect(card, cardCol);
                 GUI.DrawTexture(card, _headerTex, ScaleMode.ScaleAndCrop, true);
                 var div = new Rect(card.x, card.yMax, card.width, 1f);
-                EditorGUI.DrawRect(div, EditorGUIUtility.isProSkin ? new Color(1,1,1,0.08f) : new Color(0,0,0,0.12f));
+                EditorGUI.DrawRect(div,
+                    EditorGUIUtility.isProSkin ? new Color(1, 1, 1, 0.08f) : new Color(0, 0, 0, 0.12f));
             }
         }
 
@@ -254,10 +271,11 @@ namespace ContentTools.Editor
         private Vector2 _mainScroll;
 
         private string _currentGameName;
+
         private void OnGUI()
         {
             _currentGameName = EditorPrefs.GetString("ModIo.CurrentGame", "this game");
-            
+
             // 1) Header (fixed, layout-managed)
             DrawHeaderBanner();
 
@@ -284,7 +302,7 @@ namespace ContentTools.Editor
                     // Ensure DrawPacksList() has no inner ScrollViewScope
                     DrawPacksList();
                     GUILayout.Space(8);
-                    
+
                     // 👇 NEW: bottom spacer so the last items don’t sit under the footer
                     GUILayout.Space(FOOTER_H + 8f);
                 }
@@ -334,7 +352,7 @@ namespace ContentTools.Editor
                 _dropZoneStyle.normal.textColor = new Color(0.75f, 0.75f, 0.75f);
             }
 
-           // EditorGUILayout.LabelField("Content Manager", EditorStyles.boldLabel);
+            // EditorGUILayout.LabelField("Content Manager", EditorStyles.boldLabel);
             //GUILayout.Space(4);
 
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
@@ -378,7 +396,8 @@ namespace ContentTools.Editor
                             var imgRect = GUILayoutUtility.GetRect(96, 48, GUILayout.Width(96), GUILayout.Height(48));
                             if (Event.current.type == EventType.Repaint)
                             {
-                                var bg = isActive ? new Color(0, 0, 0, 0.14f)
+                                var bg = isActive
+                                    ? new Color(0, 0, 0, 0.14f)
                                     : (EditorGUIUtility.isProSkin
                                         ? new Color(1, 1, 1, 0.00f)
                                         : new Color(0, 0, 0, 0.00f));
@@ -423,35 +442,36 @@ namespace ContentTools.Editor
                             {
                                 using (new EditorGUI.DisabledScope(!detected))
                                 {
-                                    if(!isActive)
-                                    if (GUILayout.Button(isActive ? "Re-set Target" : "Set Game",
-                                            GUILayout.MinWidth(110), GUILayout.Height(22)))
-                                    {
-                                        var sa = StreamingAssetsResolver.TryResolve(install);
-                                        if (string.IsNullOrEmpty(sa))
+                                    if (!isActive)
+                                        if (GUILayout.Button(isActive ? "Re-set Target" : "Set Game",
+                                                GUILayout.MinWidth(110), GUILayout.Height(22)))
                                         {
-                                            EditorUtility.DisplayDialog("StreamingAssets not found",
-                                                $"Could not locate StreamingAssets inside:\n{install}\n\n" +
-                                                "Launch the game once via Steam, then Rescan.", "OK");
+                                            var sa = StreamingAssetsResolver.TryResolve(install);
+                                            if (string.IsNullOrEmpty(sa))
+                                            {
+                                                EditorUtility.DisplayDialog("StreamingAssets not found",
+                                                    $"Could not locate StreamingAssets inside:\n{install}\n\n" +
+                                                    "Launch the game once via Steam, then Rescan.", "OK");
+                                            }
+                                            else
+                                            {
+                                                var final = StreamingAssetsResolver.AppendSubfolder(sa,
+                                                    STREAMING_SUBPATH);
+                                                _buildLocation = final;
+                                                _lastChosenAppId = g.SteamAppId;
+                                                EditorPrefs.SetString("ModIo.ApiBase", g.ModIoApiBase);
+                                                EditorPrefs.SetString("ModIo.CurrentGame", g.DisplayName);
+                                                _statusMsg = ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame()
+                                                    ? $"✅ mod.io authorized for {g.DisplayName}"
+                                                    : $"ℹ️ Please verify mod.io for {g.DisplayName}.";
+                                                Repaint();
+
+                                                EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
+                                                EditorPrefs.SetString(PREF_KEY_LAST_APP, _lastChosenAppId.ToString());
+                                                Debug.Log(
+                                                    $"[ContentPackBuilder] Target set to {g.DisplayName}: {_buildLocation}");
+                                            }
                                         }
-                                        else
-                                        {
-                                            var final = StreamingAssetsResolver.AppendSubfolder(sa, STREAMING_SUBPATH);
-                                            _buildLocation = final;
-                                            _lastChosenAppId = g.SteamAppId;
-                                            EditorPrefs.SetString("ModIo.ApiBase", g.ModIoApiBase);
-                                            EditorPrefs.SetString("ModIo.CurrentGame", g.DisplayName);
-                                            _statusMsg = ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame()
-                                                ? $"✅ mod.io authorized for {g.DisplayName}"
-                                                : $"ℹ️ Please verify mod.io for {g.DisplayName}.";
-                                            Repaint();
-                                            
-                                            EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
-                                            EditorPrefs.SetString(PREF_KEY_LAST_APP, _lastChosenAppId.ToString());
-                                            Debug.Log(
-                                                $"[ContentPackBuilder] Target set to {g.DisplayName}: {_buildLocation}");
-                                        }
-                                    }
                                 }
 
                                 using (new EditorGUI.DisabledScope(!detected))
@@ -503,11 +523,12 @@ namespace ContentTools.Editor
                                                     _lastChosenAppId = g.SteamAppId;
                                                     EditorPrefs.SetString("ModIo.ApiBase", g.ModIoApiBase);
                                                     EditorPrefs.SetString("ModIo.CurrentGame", g.DisplayName);
-                                                    _statusMsg = ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame()
-                                                        ? $"✅ mod.io authorized for {g.DisplayName}"
-                                                        : $"ℹ️ Please verify mod.io for {g.DisplayName}.";
+                                                    _statusMsg =
+                                                        ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame()
+                                                            ? $"✅ mod.io authorized for {g.DisplayName}"
+                                                            : $"ℹ️ Please verify mod.io for {g.DisplayName}.";
                                                     Repaint();
-                                                    
+
                                                     EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
                                                     EditorPrefs.SetString(PREF_KEY_LAST_APP,
                                                         _lastChosenAppId.ToString());
@@ -562,7 +583,7 @@ namespace ContentTools.Editor
                                                     ? $"✅ mod.io authorized for {g.DisplayName}"
                                                     : $"ℹ️ Please verify mod.io for {g.DisplayName}.";
                                                 Repaint();
-                                                
+
                                                 EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
                                                 EditorPrefs.SetString(PREF_KEY_LAST_APP, _lastChosenAppId.ToString());
                                                 Debug.Log(
@@ -587,7 +608,7 @@ namespace ContentTools.Editor
                         }
                     }
                 }
-                
+
             }
         }
 
@@ -681,7 +702,7 @@ namespace ContentTools.Editor
 
         // Scroll position for the Part Hierarchy Rules panel
         private Vector2 _rulesHierarchyScroll;
-        
+
 
 // Subsection foldouts
         private bool _allowedPairsFoldout = true;
@@ -1006,7 +1027,7 @@ namespace ContentTools.Editor
                     if (string.IsNullOrEmpty(key)) continue;
 
                     if (!_foldouts.ContainsKey(key)) _foldouts[key] = true;
-                    
+
 
                     using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
                     {
@@ -1014,7 +1035,7 @@ namespace ContentTools.Editor
                         {
                             _foldouts[key] = EditorGUILayout.Foldout(_foldouts[key], p.name, true);
                             GUILayout.FlexibleSpace();
-                            
+
                             if (GUILayout.Button("Rename", GUILayout.Width(90)))
                             {
                                 RenameDialog.Show(
@@ -1028,7 +1049,8 @@ namespace ContentTools.Editor
 
                                         if (newName.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
                                         {
-                                            EditorUtility.DisplayDialog("Invalid Name", "Pack name contains invalid characters.", "OK");
+                                            EditorUtility.DisplayDialog("Invalid Name",
+                                                "Pack name contains invalid characters.", "OK");
                                             return;
                                         }
 
@@ -1059,6 +1081,7 @@ namespace ContentTools.Editor
                                     BuildPacks(new List<ContentPackDefinition> { p }, cleanMissing: true);
                                 }
                             }
+
 // --- Show "Publish to Mod.io" only if authorized ---
                             if (ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame())
                             {
@@ -1132,21 +1155,30 @@ namespace ContentTools.Editor
 
                                     if (confirm)
                                     {
+                                        // 1) Persist token on the pack (as you already did)
                                         string token = ContentTools.ModIo.ModIoAuth.CurrentToken;
-
                                         Undo.RecordObject(p, "Set Mod.io User Token");
                                         p.modioUserToken = token;
                                         EditorUtility.SetDirty(p);
                                         AssetDatabase.SaveAssets();
 
-                                        Debug.Log(
-                                            $"[ContentPackBuilder] Stored Mod.io user token on pack '{p.name}' for {currentGame}.");
-                                        EditorUtility.DisplayDialog(
-                                            "Token Stored",
-                                            $"Mod.io user token stored in '{p.name}' for {currentGame}.",
-                                            "OK"
-                                        );
+                                        // 2) Build + upload
+                                        try
+                                        {
+                                            EditorUtility.DisplayProgressBar("Publish to Mod.io", "Exporting…", 0.3f);
+                                            var packagePath = ExportUnityPackage(p);  // builds items+deps+screenshot+icons
+
+                                            EditorUtility.DisplayProgressBar("Publish to Mod.io", "Requesting upload URL…", 0.6f);
+                                            PublishToModioAsync(p, currentGame);
+                                        }
+                                        catch (System.Exception ex)
+                                        {
+                                            EditorUtility.ClearProgressBar();
+                                            Debug.LogError($"[ContentPackBuilder] Publish failed: {ex.Message}");
+                                            EditorUtility.DisplayDialog("Publish Failed", ex.Message, "OK");
+                                        }
                                     }
+
                                     else
                                     {
                                         Debug.Log(
@@ -1181,6 +1213,7 @@ namespace ContentTools.Editor
                                 DeletePack(p);
 
                         }
+
                         GUILayout.Space(20);
 
                         if (_foldouts.ContainsKey(key))
@@ -1188,13 +1221,14 @@ namespace ContentTools.Editor
                             {
 
                                 EditorGUI.indentLevel++;
-                                
+
                                 // === Pack Metadata foldout ===
                                 string metaKey = p.name + "_meta";
                                 if (!_metaFoldouts.ContainsKey(metaKey))
                                     _metaFoldouts[metaKey] = false;
 
-                                _metaFoldouts[metaKey] = EditorGUILayout.Foldout(_metaFoldouts[metaKey], "Pack Metadata", true);
+                                _metaFoldouts[metaKey] =
+                                    EditorGUILayout.Foldout(_metaFoldouts[metaKey], "Pack Metadata", true);
 
                                 if (_metaFoldouts[metaKey])
                                 {
@@ -1205,7 +1239,8 @@ namespace ContentTools.Editor
                                         // Summary
                                         EditorGUI.BeginChangeCheck();
                                         EditorGUILayout.LabelField("Summary");
-                                        string newSummary = EditorGUILayout.TextArea(p.summary, GUILayout.MinHeight(40));
+                                        string newSummary =
+                                            EditorGUILayout.TextArea(p.summary, GUILayout.MinHeight(40));
                                         if (EditorGUI.EndChangeCheck())
                                         {
                                             Undo.RecordObject(p, "Edit Pack Summary");
@@ -1216,83 +1251,90 @@ namespace ContentTools.Editor
                                         // Screenshot
                                         EditorGUI.BeginChangeCheck();
 // === Screenshot Preview ===
-EditorGUILayout.LabelField("Main Screenshot (1920x1080)", EditorStyles.boldLabel);
+                                        EditorGUILayout.LabelField("Main Screenshot (1920x1080)",
+                                            EditorStyles.boldLabel);
 
-Rect previewRect = GUILayoutUtility.GetRect(200, 120, GUILayout.ExpandWidth(true));
-GUIStyle boxStyle = new GUIStyle(GUI.skin.box)
-{
-    alignment = TextAnchor.MiddleCenter,
-    normal = { textColor = Color.gray }
-};
+                                        Rect previewRect =
+                                            GUILayoutUtility.GetRect(200, 120, GUILayout.ExpandWidth(true));
+                                        GUIStyle boxStyle = new GUIStyle(GUI.skin.box)
+                                        {
+                                            alignment = TextAnchor.MiddleCenter,
+                                            normal = { textColor = Color.gray }
+                                        };
 
 // Handle image assignment
-if (p.mainScreenshot == null)
-{
-    GUI.Box(previewRect, "Drop Image Here\n(1920×1080 required)", boxStyle);
-    var dropEvt = Event.current;
-    if (dropEvt.type == EventType.DragUpdated || dropEvt.type == EventType.DragPerform)
-    {
-        if (previewRect.Contains(dropEvt.mousePosition))
-        {
-            DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
+                                        if (p.mainScreenshot == null)
+                                        {
+                                            GUI.Box(previewRect, "Drop Image Here\n(1920×1080 required)", boxStyle);
+                                            var dropEvt = Event.current;
+                                            if (dropEvt.type == EventType.DragUpdated ||
+                                                dropEvt.type == EventType.DragPerform)
+                                            {
+                                                if (previewRect.Contains(dropEvt.mousePosition))
+                                                {
+                                                    DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
 
-            if (dropEvt.type == EventType.DragPerform)
-            {
-                DragAndDrop.AcceptDrag();
-                foreach (var obj in DragAndDrop.objectReferences)
-                {
-                    if (obj is Texture2D tex)
-                    {
-                        Undo.RecordObject(p, "Assign Main Screenshot");
-                        p.mainScreenshot = tex;
-                        EditorUtility.SetDirty(p);
-                        break;
-                    }
-                }
-            }
-            dropEvt.Use();
-        }
-    }
-}
-else
-{
-    // Draw the image with proper aspect
-    Texture2D tex = p.mainScreenshot;
-    Rect imgRect = new Rect(previewRect.x + 4, previewRect.y + 4, previewRect.width - 8, previewRect.height - 8);
-    GUI.DrawTexture(imgRect, tex, ScaleMode.ScaleToFit);
-    GUI.Box(previewRect, GUIContent.none);
+                                                    if (dropEvt.type == EventType.DragPerform)
+                                                    {
+                                                        DragAndDrop.AcceptDrag();
+                                                        foreach (var obj in DragAndDrop.objectReferences)
+                                                        {
+                                                            if (obj is Texture2D tex)
+                                                            {
+                                                                Undo.RecordObject(p, "Assign Main Screenshot");
+                                                                p.mainScreenshot = tex;
+                                                                EditorUtility.SetDirty(p);
+                                                                break;
+                                                            }
+                                                        }
+                                                    }
 
-    // Dimension validation
-    if (tex.width != 1920 || tex.height != 1080)
-    {
-        EditorGUILayout.HelpBox(
-            $"⚠️ Image is {tex.width}×{tex.height}. Required size is 1920×1080.",
-            MessageType.Warning
-        );
-    }
+                                                    dropEvt.Use();
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            // Draw the image with proper aspect
+                                            Texture2D tex = p.mainScreenshot;
+                                            Rect imgRect = new Rect(previewRect.x + 4, previewRect.y + 4,
+                                                previewRect.width - 8, previewRect.height - 8);
+                                            GUI.DrawTexture(imgRect, tex, ScaleMode.ScaleToFit);
+                                            GUI.Box(previewRect, GUIContent.none);
 
-    // Allow reassigning / clearing
-    using (new GUILayout.HorizontalScope())
-    {
-        if (GUILayout.Button("Change Screenshot", GUILayout.Width(150)))
-        {
-            var newTex = (Texture2D)EditorGUILayout.ObjectField(p.mainScreenshot, typeof(Texture2D), false);
-            if (newTex != null && newTex != p.mainScreenshot)
-            {
-                Undo.RecordObject(p, "Change Main Screenshot");
-                p.mainScreenshot = newTex;
-                EditorUtility.SetDirty(p);
-            }
-        }
+                                            // Dimension validation
+                                            if (tex.width != 1920 || tex.height != 1080)
+                                            {
+                                                EditorGUILayout.HelpBox(
+                                                    $"⚠️ Image is {tex.width}×{tex.height}. Required size is 1920×1080.",
+                                                    MessageType.Warning
+                                                );
+                                            }
 
-        if (GUILayout.Button("Clear", GUILayout.Width(70)))
-        {
-            Undo.RecordObject(p, "Clear Main Screenshot");
-            p.mainScreenshot = null;
-            EditorUtility.SetDirty(p);
-        }
-    }
-}
+                                            // Allow reassigning / clearing
+                                            using (new GUILayout.HorizontalScope())
+                                            {
+                                                if (GUILayout.Button("Change Screenshot", GUILayout.Width(150)))
+                                                {
+                                                    var newTex =
+                                                        (Texture2D)EditorGUILayout.ObjectField(p.mainScreenshot,
+                                                            typeof(Texture2D), false);
+                                                    if (newTex != null && newTex != p.mainScreenshot)
+                                                    {
+                                                        Undo.RecordObject(p, "Change Main Screenshot");
+                                                        p.mainScreenshot = newTex;
+                                                        EditorUtility.SetDirty(p);
+                                                    }
+                                                }
+
+                                                if (GUILayout.Button("Clear", GUILayout.Width(70)))
+                                                {
+                                                    Undo.RecordObject(p, "Clear Main Screenshot");
+                                                    p.mainScreenshot = null;
+                                                    EditorUtility.SetDirty(p);
+                                                }
+                                            }
+                                        }
 
                                         //if (EditorGUI.EndChangeCheck())
                                         //{
@@ -1320,8 +1362,8 @@ else
                                 }
 
 
-                                
-                                
+
+
                                 // Items list with inline validation
                                 if (p._items != null && p._items.Count > 0)
                                 {
@@ -1425,91 +1467,119 @@ else
             }
         }
         
+        // at class scope
+        private async void PublishToModioAsync(ContentPackDefinition p, string currentGame)
+        {
+            try
+            {
+                // (you already validated items/summary/screenshot before calling this)
+                EditorUtility.DisplayProgressBar("Publish to Mod.io", "Exporting unitypackage…", 0.3f);
+                var packagePath = BuildUnityPackageForPack(p); // builds items + deps + screenshot + icons
+
+                EditorUtility.DisplayProgressBar("Publish to Mod.io", "Requesting upload URL…", 0.6f);
+                await UploadUnityPackageAsync(packagePath);    // <-- your async uploader
+
+                EditorUtility.DisplayProgressBar("Publish to Mod.io", "Finalizing…", 0.9f);
+                EditorUtility.ClearProgressBar();
+
+                EditorUtility.DisplayDialog("Publish Complete",
+                    $"Your pack '{p.name}' was uploaded successfully to {currentGame}.", "OK");
+                Debug.Log($"[ContentPackBuilder] Uploaded unitypackage: {packagePath}");
+            }
+            catch (System.Exception ex)
+            {
+                EditorUtility.ClearProgressBar();
+                Debug.LogError($"[ContentPackBuilder] Publish failed: {ex.Message}");
+                EditorUtility.DisplayDialog("Publish Failed", ex.Message, "OK");
+            }
+        }
+
+
         private bool _modioFoldout = true;
         private string _emailInput = "";
         private string _codeInput = "";
         private string _statusMsg = "";
-private Texture2D _modioLogo;
+        private Texture2D _modioLogo;
 
-void DrawModIoSection()
-{
-    using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
-    {
-        _modioFoldout = EditorGUILayout.Foldout(_modioFoldout, "mod.io Login", true);
-        if (!_modioFoldout) return;
-
-        if (_modioLogo == null) _modioLogo = Resources.Load<Texture2D>("modio_Logo");
-
-        using (new EditorGUILayout.HorizontalScope())
+        void DrawModIoSection()
         {
-            var logoWidth = 86f;
-            var logoHeight = 58f;
-            GUILayout.Space(4);
-            var rect = GUILayoutUtility.GetRect(logoWidth, logoHeight, GUILayout.Width(logoWidth),
-                GUILayout.Height(logoHeight));
-            if (_modioLogo != null) GUI.DrawTexture(rect, _modioLogo, ScaleMode.ScaleToFit, true);
-
-            GUILayout.Space(5);
-
-            using (new EditorGUILayout.VerticalScope())
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
+                _modioFoldout = EditorGUILayout.Foldout(_modioFoldout, "mod.io Login", true);
+                if (!_modioFoldout) return;
 
-                if (!ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame())
+                if (_modioLogo == null) _modioLogo = Resources.Load<Texture2D>("modio_Logo");
+
+                using (new EditorGUILayout.HorizontalScope())
                 {
-                    // Not authorized for this game: prompt for email/code
-                    _emailInput = EditorGUILayout.TextField("Email", _emailInput);
-                    _codeInput = EditorGUILayout.TextField("Code", _codeInput);
+                    var logoWidth = 86f;
+                    var logoHeight = 58f;
+                    GUILayout.Space(4);
+                    var rect = GUILayoutUtility.GetRect(logoWidth, logoHeight, GUILayout.Width(logoWidth),
+                        GUILayout.Height(logoHeight));
+                    if (_modioLogo != null) GUI.DrawTexture(rect, _modioLogo, ScaleMode.ScaleToFit, true);
 
-                    using (new EditorGUILayout.HorizontalScope())
-                    {
-                        if (GUILayout.Button("Send Code"))
-                            ContentTools.ModIo.ModIoAuth.BeginEmailRequest(_emailInput, s =>
-                            {
-                                _statusMsg = s;
-                                Debug.Log(_statusMsg);
-                                Repaint();
-                            });
+                    GUILayout.Space(5);
 
-                        if (GUILayout.Button("Verify"))
-                            ContentTools.ModIo.ModIoAuth.ExchangeCode(_emailInput, _codeInput, s =>
-                            {
-                                _statusMsg = s;
-                                Debug.Log(_statusMsg);
-                                Repaint();
-                            });
-                    }
-                }
-                else
-                {
-                    // Already authorized for this game's API base
-                    EditorGUILayout.LabelField("✅ Authorized as:", ContentTools.ModIo.ModIoAuth.CurrentEmail);
-                    using (new EditorGUILayout.HorizontalScope())
+                    using (new EditorGUILayout.VerticalScope())
                     {
-                        var currentGame = EditorPrefs.GetString("ModIo.CurrentGame", "this game");
-                        if (GUILayout.Button($"Logout ({currentGame})", GUILayout.Width(150)))
+
+                        if (!ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame())
                         {
-                            ContentTools.ModIo.ModIoAuth.ClearForCurrentGame();
-                            _statusMsg = $"Logged out for {currentGame}.";
-                            Debug.Log(_statusMsg);
-                            Repaint();
+                            // Not authorized for this game: prompt for email/code
+                            _emailInput = EditorGUILayout.TextField("Email", _emailInput);
+                            _codeInput = EditorGUILayout.TextField("Code", _codeInput);
+
+                            using (new EditorGUILayout.HorizontalScope())
+                            {
+                                if (GUILayout.Button("Send Code"))
+                                    ContentTools.ModIo.ModIoAuth.BeginEmailRequest(_emailInput, s =>
+                                    {
+                                        _statusMsg = s;
+                                        Debug.Log(_statusMsg);
+                                        Repaint();
+                                    });
+
+                                if (GUILayout.Button("Verify"))
+                                    ContentTools.ModIo.ModIoAuth.ExchangeCode(_emailInput, _codeInput, s =>
+                                    {
+                                        _statusMsg = s;
+                                        Debug.Log(_statusMsg);
+                                        Repaint();
+                                    });
+                            }
+                        }
+                        else
+                        {
+                            // Already authorized for this game's API base
+                            EditorGUILayout.LabelField("✅ Authorized as:", ContentTools.ModIo.ModIoAuth.CurrentEmail);
+                            using (new EditorGUILayout.HorizontalScope())
+                            {
+                                var currentGame = EditorPrefs.GetString("ModIo.CurrentGame", "this game");
+                                if (GUILayout.Button($"Logout ({currentGame})", GUILayout.Width(150)))
+                                {
+                                    ContentTools.ModIo.ModIoAuth.ClearForCurrentGame();
+                                    _statusMsg = $"Logged out for {currentGame}.";
+                                    Debug.Log(_statusMsg);
+                                    Repaint();
+                                }
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(_statusMsg))
+                        {
+                            GUILayout.Space(4);
+                            EditorGUILayout.HelpBox(_statusMsg, MessageType.None);
                         }
                     }
                 }
 
-                if (!string.IsNullOrEmpty(_statusMsg))
-                {
-                    GUILayout.Space(4);
-                    EditorGUILayout.HelpBox(_statusMsg, MessageType.None);
-                }
+                GUILayout.Space(4);
             }
         }
 
-        GUILayout.Space(4);
-    }
-}
 
-
-private bool EnsureValidBuildFolder(out string error)
+        private bool EnsureValidBuildFolder(out string error)
         {
             error = null;
 
@@ -2236,6 +2306,102 @@ private bool EnsureValidBuildFolder(out string error)
         }
 
 
+        // Builds items + deps + screenshot + icons  → returns full path to the .unitypackage
+private static string BuildUnityPackageForPack(ContentPackDefinition pack)
+{
+    if (pack == null) throw new ArgumentNullException(nameof(pack));
+
+    // 1) Seed explicit roots (pack items, screenshot, icons if present)
+    var roots = new List<string>();
+
+    // Items (assumes ContentPackDefinition has: public List<UnityEngine.Object> items;)
+    if (pack._items != null)
+    {
+        foreach (var obj in pack._items)
+        {
+            if (!obj) continue;
+            var p = AssetDatabase.GetAssetPath(obj);
+            if (!string.IsNullOrEmpty(p)) roots.Add(p);
+        }
+    }
+
+    // Main screenshot (1920x1080)
+    if (pack.mainScreenshot)
+    {
+        var p = AssetDatabase.GetAssetPath(pack.mainScreenshot);
+        if (!string.IsNullOrEmpty(p)) roots.Add(p);
+    }
+
+    // Icon textures (optional; supports several common field names via reflection)
+    TryAddTextureListField(pack, "icons", roots);
+    TryAddTextureListField(pack, "_icons", roots);
+    TryAddTextureListField(pack, "iconTextures", roots);
+    TryAddTextureListField(pack, "additionalImages", roots);
+
+    // 2) Expand with dependencies (exclude scripts & Editor stuff)
+    var toExport = AssetDatabase.GetDependencies(roots.Distinct().ToArray(), true)
+        .Where(p => p.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
+        .Where(p => !p.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
+        .Where(p => !p.Contains("/Editor/"))
+        .Distinct()
+        .ToList();
+
+    if (toExport.Count == 0)
+        throw new Exception("Nothing to export: no items/screenshot/icons produced any assets.");
+
+    // 3) Export to Temp/
+    var outPath = GetTempUnityPackagePath(pack.name);
+    EditorUtility.DisplayProgressBar("Exporting Package",
+        $"Creating {Path.GetFileName(outPath)} ({toExport.Count} assets)…", 0.5f);
+
+    AssetDatabase.ExportPackage(toExport.ToArray(), outPath, ExportPackageOptions.Default);
+    AssetDatabase.Refresh();
+
+    if (!File.Exists(outPath))
+        throw new FileNotFoundException("Export failed (file not created).", outPath);
+
+    EditorUtility.ClearProgressBar();
+    return outPath;
+}
+
+// Helper: add Texture2D list field by name if it exists on the pack (reflection)
+private static void TryAddTextureListField(ContentPackDefinition pack, string fieldName, List<string> roots)
+{
+    var fi = typeof(ContentPackDefinition).GetField(fieldName,
+        System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+    if (fi == null) return;
+
+    var val = fi.GetValue(pack);
+    if (val is IEnumerable<Texture2D> texList)
+    {
+        foreach (var t in texList)
+        {
+            if (!t) continue;
+            var p = AssetDatabase.GetAssetPath(t);
+            if (!string.IsNullOrEmpty(p)) roots.Add(p);
+        }
+    }
+}
+
+// Temp file location (Project/Temp/RemoteCook_<pack>.unitypackage)
+private static string GetTempUnityPackagePath(string packName)
+{
+    var projRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+    var tempDir = Path.Combine(projRoot, "Temp");
+    if (!Directory.Exists(tempDir)) Directory.CreateDirectory(tempDir);
+
+    var safe = SanitizeFileName(string.IsNullOrEmpty(packName) ? "ContentPack" : packName);
+    return Path.Combine(tempDir, $"RemoteCook_{safe}.unitypackage");
+}
+
+private static string SanitizeFileName(string raw)
+{
+    var bad = Path.GetInvalidFileNameChars();
+    return new string(raw.Select(c => bad.Contains(c) ? '_' : c).ToArray());
+}
+
+        
+        
         private void CleanAddressableData()
         {
             const string GROUPS_PATH = "Assets/AddressableAssetsData/AssetGroups";
@@ -2260,14 +2426,16 @@ private bool EnsureValidBuildFolder(out string error)
                 if (!AssetDatabase.IsValidFolder(folderPath))
                     return;
 
-                string[] files = System.IO.Directory.GetFiles(folderPath, "*.*", System.IO.SearchOption.TopDirectoryOnly);
+                string[] files =
+                    System.IO.Directory.GetFiles(folderPath, "*.*", System.IO.SearchOption.TopDirectoryOnly);
 
                 foreach (string filePath in files)
                 {
                     if (filePath.EndsWith(".meta")) continue;
 
                     string fileName = System.IO.Path.GetFileNameWithoutExtension(filePath);
-                    bool keep = protectedBaseNames.Any(baseName => fileName.StartsWith(baseName, System.StringComparison.OrdinalIgnoreCase));
+                    bool keep = protectedBaseNames.Any(baseName =>
+                        fileName.StartsWith(baseName, System.StringComparison.OrdinalIgnoreCase));
 
                     if (!keep)
                     {
@@ -2285,7 +2453,117 @@ private bool EnsureValidBuildFolder(out string error)
             AssetDatabase.Refresh();
         }
 
+// Build a unitypackage containing: items + dependencies (+ screenshot + icons)
+        private static List<string> CollectExportPaths(ContentPackDefinition pack)
+        {
+            var roots = new List<string>();
+            if (pack?._items != null)
+            {
+                foreach (var go in pack._items)
+                {
+                    if (!go) continue;
+                    var p = AssetDatabase.GetAssetPath(go);
+                    if (!string.IsNullOrEmpty(p)) roots.Add(p);
+                }
+            }
 
+            // include main screenshot if set
+            if (pack.mainScreenshot)
+            {
+                var p = AssetDatabase.GetAssetPath(pack.mainScreenshot);
+                if (!string.IsNullOrEmpty(p)) roots.Add(p);
+            }
+
+            // include any generated icons recorded on the pack
+            if (pack._icons != null)
+            {
+                foreach (var t in pack._icons)
+                {
+                    if (!t) continue;
+                    var p = AssetDatabase.GetAssetPath(t);
+                    if (!string.IsNullOrEmpty(p)) roots.Add(p);
+                }
+            }
+
+            // Dependencies
+            var deps = AssetDatabase.GetDependencies(roots.ToArray(), true)
+                .Where(p => p.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
+                .Where(p => !p.EndsWith(".cs", StringComparison.OrdinalIgnoreCase)) // exclude scripts
+                .Where(p => !p.Contains("/Editor/")) // exclude Editor assets
+                .Distinct()
+                .ToList();
+
+            return deps;
+        }
+
+        private static string ProjectRoot()
+            => Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+
+        private static string TempPackagePathFor(string packName)
+        {
+            var tempDir = Path.Combine(ProjectRoot(), "Temp");
+            if (!Directory.Exists(tempDir)) Directory.CreateDirectory(tempDir);
+            return Path.Combine(tempDir, $"RemoteCook_{SanitizeFile(packName)}.unitypackage");
+        }
+
+        private static string SanitizeFile(string raw)
+        {
+            if (string.IsNullOrEmpty(raw)) return "ContentPack";
+            var bad = Path.GetInvalidFileNameChars();
+            return new string(raw.Select(c => bad.Contains(c) ? '_' : c).ToArray());
+        }
+
+        private static string ExportUnityPackage(ContentPackDefinition pack)
+        {
+            var export = CollectExportPaths(pack);
+            if (export.Count == 0) throw new Exception("No assets to export.");
+            var outPath = TempPackagePathFor(pack.name);
+
+            EditorUtility.DisplayProgressBar("Exporting Package",
+                $"Creating {Path.GetFileName(outPath)} ({export.Count} items)…", 0.5f);
+
+            AssetDatabase.ExportPackage(export.ToArray(), outPath, ExportPackageOptions.Default);
+            AssetDatabase.Refresh();
+
+            if (!File.Exists(outPath)) throw new FileNotFoundException("Export failed", outPath);
+            return outPath;
+        }
+
+        [Serializable]
+        private class UploadResponse { public string jobId; public string uploadUrl; }
+
+        private static async Task UploadUnityPackageAsync(string filePath)
+        {
+            using (var http = new HttpClient())
+            {
+                // 1) Ask proxy for an upload URL (pass a name so your function can store nicely)
+                var name = Path.GetFileName(filePath);
+                var form = new FormUrlEncodedContent(new[]
+                {
+                    new KeyValuePair<string,string>("fileName", name),
+                });
+
+                var req = await http.PostAsync(UploaderEndpoint, form);
+                var body = await req.Content.ReadAsStringAsync();
+                if (!req.IsSuccessStatusCode)
+                    throw new Exception($"Proxy request failed: {(int)req.StatusCode} {req.ReasonPhrase}\n{body}");
+
+                var data = JsonUtility.FromJson<UploadResponse>(body);
+                if (data == null || string.IsNullOrEmpty(data.uploadUrl))
+                    throw new Exception("Invalid proxy response (missing uploadUrl).");
+
+                // 2) Upload the bytes to the SAS URL
+                var bytes = File.ReadAllBytes(filePath);
+                using var content = new ByteArrayContent(bytes);
+                content.Headers.Add("x-ms-blob-type", "BlockBlob");
+                var putRes = await http.PutAsync(data.uploadUrl, content);
+
+                if (!putRes.IsSuccessStatusCode)
+                    throw new Exception($"Upload failed: {(int)putRes.StatusCode} {putRes.ReasonPhrase}");
+            }
+        }
+
+        
         private Texture2D TryLoadSteamLibraryImage(long appId, int maxHeight = 64)
         {
             if (_steamCapsuleCache.TryGetValue(appId, out var cached) && cached != null)
