@@ -26,6 +26,8 @@ namespace ContentTools
         string addressablesGroupName;
 
         private bool autoSyncOnValidate = true;
+        
+        public string modioUserToken;
 
 
         // ---------------- Editor-only sync logic ----------------

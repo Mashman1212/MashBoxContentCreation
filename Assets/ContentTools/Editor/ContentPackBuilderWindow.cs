@@ -63,7 +63,7 @@ namespace ContentTools.Editor
         private const string PREF_KEY_LAST_APP = "ContentPackBuilder.LastChosenAppId";
 
 
-        private const string FORCED_PACKS_FOLDER = "Assets/ContentPacks";
+        private const string FORCED_PACKS_FOLDER = "Assets/Content/Content Pack Data";
         private const string PREF_KEY_BUILD_LOCATION = "ContentPackBuilder.BuildLocation";
 
         private const string PREF_KEY_PROXY_BASE = "ModIo.ProxyBase";
@@ -133,6 +133,9 @@ namespace ContentTools.Editor
 
             AutoLoadRulesIfNeeded();
             RefreshPacks();
+            
+            CleanAddressableData();
+            
             EditorApplication.projectChanged += OnProjectChanged;
 
             RevalidateAllItems();
@@ -250,8 +253,11 @@ namespace ContentTools.Editor
 
         private Vector2 _mainScroll;
 
+        private string _currentGameName;
         private void OnGUI()
         {
+            _currentGameName = EditorPrefs.GetString("ModIo.CurrentGame", "this game");
+            
             // 1) Header (fixed, layout-managed)
             DrawHeaderBanner();
 
@@ -1008,9 +1014,37 @@ namespace ContentTools.Editor
                         {
                             _foldouts[key] = EditorGUILayout.Foldout(_foldouts[key], p.name, true);
                             GUILayout.FlexibleSpace();
+                            
+                            if (GUILayout.Button("Rename", GUILayout.Width(90)))
+                            {
+                                RenameDialog.Show(
+                                    "Rename Content Pack",
+                                    $"Enter a new name for '{p.name}':",
+                                    p.name,
+                                    (newName) =>
+                                    {
+                                        if (string.IsNullOrEmpty(newName) || newName == p.name)
+                                            return;
+
+                                        if (newName.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
+                                        {
+                                            EditorUtility.DisplayDialog("Invalid Name", "Pack name contains invalid characters.", "OK");
+                                            return;
+                                        }
+
+                                        string assetPath = AssetDatabase.GetAssetPath(p);
+                                        AssetDatabase.RenameAsset(assetPath, newName);
+                                        AssetDatabase.SaveAssets();
+
+                                        Debug.Log($"[ContentPackBuilder] Renamed pack from '{p.name}' to '{newName}'");
+                                    }
+                                );
+                            }
+
+
 
 // Build this single pack
-                            if (GUILayout.Button("Build", GUILayout.Width(80)))
+                            if (GUILayout.Button("Build To " + _currentGameName, GUILayout.Width(120)))
                             {
                                 // Validate this pack before building
                                 var issues = ValidatePack(p, _rules);
@@ -1025,6 +1059,56 @@ namespace ContentTools.Editor
                                     BuildPacks(new List<ContentPackDefinition> { p }, cleanMissing: true);
                                 }
                             }
+// --- Show "Publish to Mod.io" only if authorized ---
+                            if (ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame())
+                            {
+                                string currentGame = EditorPrefs.GetString("ModIo.CurrentGame", "Unknown");
+
+                                if (GUILayout.Button($"Publish to {currentGame} Mod.io", GUILayout.Width(190)))
+                                {
+                                    // 🧩 Don't allow publishing empty packs
+                                    if (p._items == null || p._items.Count == 0)
+                                    {
+                                        EditorUtility.DisplayDialog(
+                                            "Empty Pack",
+                                            $"This content pack '{p.name}' is empty.\n\n" +
+                                            "You must add content before publishing to Mod.io.",
+                                            "OK"
+                                        );
+                                        Debug.LogWarning($"[ContentPackBuilder] Attempted to publish empty pack '{p.name}'.");
+                                        return;
+                                    }
+
+                                    // 🧠 Confirmation popup (your custom text)
+                                    bool confirm = EditorUtility.DisplayDialog(
+                                        "Confirm Mod.io Publish",
+                                        $"Are you sure you want to publish this pack to {currentGame} Mod.io?",
+                                        "Yes, Publish",
+                                        "Cancel"
+                                    );
+
+                                    if (confirm)
+                                    {
+                                        string token = ContentTools.ModIo.ModIoAuth.CurrentToken;
+
+                                        Undo.RecordObject(p, "Set Mod.io User Token");
+                                        p.modioUserToken = token;
+                                        EditorUtility.SetDirty(p);
+                                        AssetDatabase.SaveAssets();
+                                        
+                                    }
+                                    else
+                                    {
+                                        Debug.Log($"[ContentPackBuilder] Publish to Mod.io for '{p.name}' cancelled by user.");
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                GUILayout.Label("🔒 Not authorized with Mod.io", GUILayout.Width(190));
+                            }
+
+
 
 // Ping the pack asset in the Project window
                             if (GUILayout.Button("PING", GUILayout.Width(70)))
@@ -1045,7 +1129,7 @@ namespace ContentTools.Editor
                                 DeletePack(p);
 
                         }
-
+                        GUILayout.Space(20);
 
                         if (_foldouts.ContainsKey(key))
                             if (_foldouts[key])
@@ -1616,12 +1700,19 @@ private bool EnsureValidBuildFolder(out string error)
             _packs.Clear();
             _foldouts.Clear();
 
-            var guids = AssetDatabase.FindAssets("t:ContentPackDefinition");
-            foreach (var guid in guids)
+            // Only find packs inside the forced folder
+            string[] guids = AssetDatabase.FindAssets("t:ContentPackDefinition", new[] { FORCED_PACKS_FOLDER });
+            foreach (string guid in guids)
             {
-                var path = AssetDatabase.GUIDToAssetPath(guid);
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+
+                // 🔒 Safety: ignore anything outside the forced folder
+                if (!path.StartsWith(FORCED_PACKS_FOLDER, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 var pack = AssetDatabase.LoadAssetAtPath<ContentPackDefinition>(path);
-                if (pack != null) _packs.Add(pack);
+                if (pack != null)
+                    _packs.Add(pack);
             }
 
             foreach (ContentPackDefinition pack in _packs)
@@ -1631,6 +1722,7 @@ private bool EnsureValidBuildFolder(out string error)
 
             Repaint();
         }
+
 
         private static void EnsureFolderExists(string folder)
         {
@@ -1958,6 +2050,54 @@ private bool EnsureValidBuildFolder(out string error)
         }
 
 
+        private void CleanAddressableData()
+        {
+            const string GROUPS_PATH = "Assets/AddressableAssetsData/AssetGroups";
+            const string SCHEMAS_PATH = "Assets/AddressableAssetsData/AssetGroups/Schemas";
+
+            // Keep these by default
+            HashSet<string> protectedBaseNames = new HashSet<string>
+            {
+                "Built In Data",
+                "Default Local Group"
+            };
+
+            // Add content pack names to the protected list
+            foreach (var pack in _packs)
+            {
+                if (pack == null) continue;
+                protectedBaseNames.Add(pack.name);
+            }
+
+            void CleanFolder(string folderPath)
+            {
+                if (!AssetDatabase.IsValidFolder(folderPath))
+                    return;
+
+                string[] files = System.IO.Directory.GetFiles(folderPath, "*.*", System.IO.SearchOption.TopDirectoryOnly);
+
+                foreach (string filePath in files)
+                {
+                    if (filePath.EndsWith(".meta")) continue;
+
+                    string fileName = System.IO.Path.GetFileNameWithoutExtension(filePath);
+                    bool keep = protectedBaseNames.Any(baseName => fileName.StartsWith(baseName, System.StringComparison.OrdinalIgnoreCase));
+
+                    if (!keep)
+                    {
+                        Debug.Log($"[Cleanup] Removing stray Addressables asset: {fileName}");
+                        AssetDatabase.DeleteAsset(filePath);
+                    }
+                }
+            }
+
+            // Run cleanup on both folders
+            CleanFolder(GROUPS_PATH);
+            CleanFolder(SCHEMAS_PATH);
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+        }
 
 
         private Texture2D TryLoadSteamLibraryImage(long appId, int maxHeight = 64)
