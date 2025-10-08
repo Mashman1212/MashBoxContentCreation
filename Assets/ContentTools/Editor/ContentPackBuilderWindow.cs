@@ -460,6 +460,7 @@ namespace ContentTools.Editor
                                                     STREAMING_SUBPATH);
                                                 _buildLocation = final;
                                                 _lastChosenAppId = g.SteamAppId;
+                                                _codeInput = "";
                                                 EditorPrefs.SetString("ModIo.ApiBase", g.ModIoApiBase);
                                                 EditorPrefs.SetString("ModIo.CurrentGame", g.DisplayName);
                                                 _statusMsg = ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame()
