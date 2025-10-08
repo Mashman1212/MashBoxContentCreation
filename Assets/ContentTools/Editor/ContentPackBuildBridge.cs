@@ -81,6 +81,8 @@ namespace ContentTools.Editor
         {
             var chosen = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, DEFAULT_BUILD_FOLDER_REL);
             if (string.IsNullOrWhiteSpace(chosen)) chosen = DEFAULT_BUILD_FOLDER_REL;
+
+            chosen = DEFAULT_BUILD_FOLDER_REL;
             return ToProjectAbsolutePath(chosen);
         }
 
@@ -214,6 +216,8 @@ namespace ContentTools.Editor
                     AssetDatabase.SaveAssets();
                 }
 
+                EditorPrefs.SetString("modio_access_token",pack.modioUserToken);
+                EditorPrefs.SetString("gamebuildname",pack.gameName);
                 // Reload again in case Sync changed/rewrote the asset.
                 pack = AssetDatabase.LoadAssetAtPath<ContentPackDefinition>(assetPath);
                 if (!pack)
