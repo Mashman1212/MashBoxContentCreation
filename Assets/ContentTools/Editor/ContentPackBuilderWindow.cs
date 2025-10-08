@@ -1,4 +1,4 @@
-// Requires SteamLocator.cs and StreamingAssetsResolver.cs (Editor-only helpers)
+
 #if UNITY_EDITOR
 using System;
 using System.Linq;
@@ -71,15 +71,14 @@ namespace ContentTools.Editor
 
         private const string PREF_KEY_PROXY_BASE = "ModIo.ProxyBase";
 
-        private const string DEFAULT_PROXY_BASE =
-            "https://modio-proxy-cgf2e7hvc6fggsh6.centralus-01.azurewebsites.net/modio";
+        private const string DEFAULT_PROXY_BASE = "https://modio-proxy-cgf2e7hvc6fggsh6.centralus-01.azurewebsites.net/modio";
 
-        private const string UGC_REQUEST_PATH = "/ugc/request-upload";
+        private const string UGC_REQUEST_PATH = "https://modio-proxy-cgf2e7hvc6fggsh6.centralus-01.azurewebsites.net/ugc/request-upload";
 
         private static string ProxyHostBase => EditorPrefs.GetString(PREF_KEY_PROXY_BASE, DEFAULT_PROXY_BASE)
             .TrimEnd('/').Replace("/modio", "");
 
-        private static string UploaderEndpoint => ProxyHostBase + UGC_REQUEST_PATH;
+        private static string UploaderEndpoint => UGC_REQUEST_PATH;
 
 
 
@@ -428,6 +427,8 @@ namespace ContentTools.Editor
                                     EditorGUILayout.LabelField(status, statusStyle, GUILayout.Width(100));
                                     if (isActive)
                                     {
+                                        EditorPrefs.SetString("ModIo.ApiBase", g.ModIoApiBase);
+                                        EditorPrefs.SetString("ModIo.CurrentGame", g.DisplayName);
                                         var activeStyle = new GUIStyle(EditorStyles.miniBoldLabel);
                                         activeStyle.normal.textColor = Color.green;
                                         EditorGUILayout.LabelField("✓ Active target", activeStyle);
@@ -459,6 +460,7 @@ namespace ContentTools.Editor
                                                     STREAMING_SUBPATH);
                                                 _buildLocation = final;
                                                 _lastChosenAppId = g.SteamAppId;
+                                                _codeInput = "";
                                                 EditorPrefs.SetString("ModIo.ApiBase", g.ModIoApiBase);
                                                 EditorPrefs.SetString("ModIo.CurrentGame", g.DisplayName);
                                                 _statusMsg = ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame()
@@ -1166,10 +1168,6 @@ namespace ContentTools.Editor
                                         // 2) Build + upload
                                         try
                                         {
-                                            EditorUtility.DisplayProgressBar("Publish to Mod.io", "Exporting…", 0.3f);
-                                            var packagePath = ExportUnityPackage(p);  // builds items+deps+screenshot+icons
-
-                                            EditorUtility.DisplayProgressBar("Publish to Mod.io", "Requesting upload URL…", 0.6f);
                                             PublishToModioAsync(p, currentGame);
                                         }
                                         catch (System.Exception ex)
@@ -2307,15 +2305,19 @@ namespace ContentTools.Editor
         }
 
 
-        // Builds items + deps + screenshot + icons  → returns full path to the .unitypackage
 private static string BuildUnityPackageForPack(ContentPackDefinition pack)
 {
     if (pack == null) throw new ArgumentNullException(nameof(pack));
 
-    // 1) Seed explicit roots (pack items, screenshot, icons if present)
-    var roots = new List<string>();
+    // Make sure latest edits (token/summary/screenshot) are on disk
+    AssetDatabase.SaveAssets();
 
-    // Items (assumes ContentPackDefinition has: public List<UnityEngine.Object> items;)
+    // 1) Seed roots with the pack definition itself
+    var roots = new List<string>();
+    var defPath = AssetDatabase.GetAssetPath(pack);   // <-- the .asset file
+    if (!string.IsNullOrEmpty(defPath)) roots.Add(defPath);
+
+    // Items
     if (pack._items != null)
     {
         foreach (var obj in pack._items)
@@ -2326,20 +2328,20 @@ private static string BuildUnityPackageForPack(ContentPackDefinition pack)
         }
     }
 
-    // Main screenshot (1920x1080)
+    // Main screenshot
     if (pack.mainScreenshot)
     {
         var p = AssetDatabase.GetAssetPath(pack.mainScreenshot);
         if (!string.IsNullOrEmpty(p)) roots.Add(p);
     }
 
-    // Icon textures (optional; supports several common field names via reflection)
+    // Icons (if you have a list)
     TryAddTextureListField(pack, "icons", roots);
     TryAddTextureListField(pack, "_icons", roots);
     TryAddTextureListField(pack, "iconTextures", roots);
     TryAddTextureListField(pack, "additionalImages", roots);
 
-    // 2) Expand with dependencies (exclude scripts & Editor stuff)
+    // 2) Expand with dependencies (keep content-only)
     var toExport = AssetDatabase.GetDependencies(roots.Distinct().ToArray(), true)
         .Where(p => p.StartsWith("Assets/", StringComparison.OrdinalIgnoreCase))
         .Where(p => !p.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
@@ -2348,9 +2350,9 @@ private static string BuildUnityPackageForPack(ContentPackDefinition pack)
         .ToList();
 
     if (toExport.Count == 0)
-        throw new Exception("Nothing to export: no items/screenshot/icons produced any assets.");
+        throw new Exception("Nothing to export: no assets/screenshot/icons/definition were found.");
 
-    // 3) Export to Temp/
+    // 3) Export
     var outPath = GetTempUnityPackagePath(pack.name);
     EditorUtility.DisplayProgressBar("Exporting Package",
         $"Creating {Path.GetFileName(outPath)} ({toExport.Count} assets)…", 0.5f);
@@ -2364,6 +2366,7 @@ private static string BuildUnityPackageForPack(ContentPackDefinition pack)
     EditorUtility.ClearProgressBar();
     return outPath;
 }
+
 
 // Helper: add Texture2D list field by name if it exists on the pack (reflection)
 private static void TryAddTextureListField(ContentPackDefinition pack, string fieldName, List<string> roots)
