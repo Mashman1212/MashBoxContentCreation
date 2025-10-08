@@ -28,6 +28,7 @@ namespace ContentTools
         private bool autoSyncOnValidate = true;
         
         public string modioUserToken;
+        public string gameName;
         [Header("Metadata")]
         [Tooltip("Short description or summary for this content pack (shown on mod.io).")]
         [TextArea(2, 5)]
