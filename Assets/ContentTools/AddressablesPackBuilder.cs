@@ -32,7 +32,6 @@ namespace ContentTools.Editor
         {
             public string packName;
             public string version;
-            public string buildTarget;
             public string profileName;
             public string playerVersionOverride;
             public string catalogRemoteUrl;
@@ -75,6 +74,22 @@ namespace ContentTools.Editor
             public bool forceLocalPaths;
         }
 
+        private static void EnsureBuildTargetIsValid()
+        {
+            var activeTarget = EditorUserBuildSettings.activeBuildTarget;
+            var activeGroup  = BuildPipeline.GetBuildTargetGroup(activeTarget);
+
+            if (activeGroup == BuildTargetGroup.Unknown)
+            {
+                // Default to a sane platform (e.g., Windows)
+                activeTarget = BuildTarget.StandaloneWindows64;
+                activeGroup  = BuildTargetGroup.Standalone;
+
+                EditorUserBuildSettings.SwitchActiveBuildTarget(activeGroup, activeTarget);
+                Debug.Log($"[AddressablesPackBuilder] Switched active build target to {activeTarget} ({activeGroup})");
+            }
+        }
+        
         public static void BuildPack(ContentPackDefinition def, BuildOptions opts)
         {
             if (def == null) { Debug.LogError("ContentPackDefinition is null"); return; }
@@ -203,6 +218,7 @@ namespace ContentTools.Editor
             try
             {
                 // Build Addressables
+                EnsureBuildTargetIsValid(); // ✅ make sure Unity has a valid target
                 AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult buildResult);
 
                 // After build: find the produced catalog and adjust it if under StreamingAssets

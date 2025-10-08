@@ -15,6 +15,7 @@ using Debug = UnityEngine.Debug;
 using Object = UnityEngine.Object;
 
 using ContentTools.Editor.SteamDetect;
+using ContentTools.ModIo;
 
 namespace ContentTools.Editor
 {
@@ -33,12 +34,23 @@ namespace ContentTools.Editor
         {
             public string DisplayName;
             public long SteamAppId;
+            public string ModIoApiBase;
         }
 
         private static readonly AllowedGame[] ALLOWED_GAMES = new[]
         {
-            new AllowedGame { DisplayName = "BMXS", SteamAppId = 871540 },
-            new AllowedGame { DisplayName = "ScootX", SteamAppId = 3800340 },
+            new AllowedGame 
+            { 
+                DisplayName = "BMXS", 
+                SteamAppId = 871540,
+                ModIoApiBase = "https://g-10073.modapi.io/v1"
+            },
+            new AllowedGame
+            {
+                DisplayName = "ScootX", 
+                SteamAppId = 3800340,
+                ModIoApiBase = "https://g-2835.modapi.io/v1"
+            },
         };
 
         private const string STREAMING_SUBPATH = "Addressables/Customization"; // under StreamingAssets
@@ -54,6 +66,9 @@ namespace ContentTools.Editor
         private const string FORCED_PACKS_FOLDER = "Assets/ContentPacks";
         private const string PREF_KEY_BUILD_LOCATION = "ContentPackBuilder.BuildLocation";
 
+        private const string PREF_KEY_PROXY_BASE = "ModIo.ProxyBase";
+        private const string DEFAULT_PROXY_BASE  = "https://modio-proxy-cgf2e7hvc6fggsh6.centralus-01.azurewebsites.net/modio";
+        
         private readonly List<ContentPackDefinition> _packs = new List<ContentPackDefinition>();
         private readonly Dictionary<string, bool> _foldouts = new Dictionary<string, bool>();
 
@@ -93,6 +108,8 @@ namespace ContentTools.Editor
         public static void Open()
         {
             GetWindow<ContentPackBuilderWindow>(true, "MG Content Manager");
+            
+            EditorPrefs.SetString(PREF_KEY_PROXY_BASE, DEFAULT_PROXY_BASE);
         }
 
         private void OnEnable()
@@ -100,7 +117,8 @@ namespace ContentTools.Editor
             _headerTex = Resources.Load<Texture2D>(HEADER_RESOURCE_NAME);
             _settings = AddressableAssetSettingsDefaultObject.Settings;
             _buildLocation = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, DefaultBuildFolderRel);
-
+          
+            
             _lastChosenAppId = long.TryParse(EditorPrefs.GetString(PREF_KEY_LAST_APP, "0"), out var v) ? v : 0;
 
             // If there isn't one saved yet, default to Assets/StreamingAssets/Addressables/Customization
@@ -247,6 +265,7 @@ namespace ContentTools.Editor
                 using (new EditorGUILayout.VerticalScope())
                 {
                     Header();
+                    DrawModIoSection();
                     GUILayout.Space(6);
 
                     // Validation Rules auto-expands (no inner scroll)
@@ -414,6 +433,13 @@ namespace ContentTools.Editor
                                             var final = StreamingAssetsResolver.AppendSubfolder(sa, STREAMING_SUBPATH);
                                             _buildLocation = final;
                                             _lastChosenAppId = g.SteamAppId;
+                                            EditorPrefs.SetString("ModIo.ApiBase", g.ModIoApiBase);
+                                            EditorPrefs.SetString("ModIo.CurrentGame", g.DisplayName);
+                                            _statusMsg = ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame()
+                                                ? $"✅ mod.io authorized for {g.DisplayName}"
+                                                : $"ℹ️ Please verify mod.io for {g.DisplayName}.";
+                                            Repaint();
+                                            
                                             EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
                                             EditorPrefs.SetString(PREF_KEY_LAST_APP, _lastChosenAppId.ToString());
                                             Debug.Log(
@@ -469,6 +495,13 @@ namespace ContentTools.Editor
                                                         STREAMING_SUBPATH);
                                                     _buildLocation = final;
                                                     _lastChosenAppId = g.SteamAppId;
+                                                    EditorPrefs.SetString("ModIo.ApiBase", g.ModIoApiBase);
+                                                    EditorPrefs.SetString("ModIo.CurrentGame", g.DisplayName);
+                                                    _statusMsg = ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame()
+                                                        ? $"✅ mod.io authorized for {g.DisplayName}"
+                                                        : $"ℹ️ Please verify mod.io for {g.DisplayName}.";
+                                                    Repaint();
+                                                    
                                                     EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
                                                     EditorPrefs.SetString(PREF_KEY_LAST_APP,
                                                         _lastChosenAppId.ToString());
@@ -517,6 +550,13 @@ namespace ContentTools.Editor
                                                     STREAMING_SUBPATH);
                                                 _buildLocation = final;
                                                 _lastChosenAppId = g.SteamAppId;
+                                                EditorPrefs.SetString("ModIo.ApiBase", g.ModIoApiBase);
+                                                EditorPrefs.SetString("ModIo.CurrentGame", g.DisplayName);
+                                                _statusMsg = ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame()
+                                                    ? $"✅ mod.io authorized for {g.DisplayName}"
+                                                    : $"ℹ️ Please verify mod.io for {g.DisplayName}.";
+                                                Repaint();
+                                                
                                                 EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
                                                 EditorPrefs.SetString(PREF_KEY_LAST_APP, _lastChosenAppId.ToString());
                                                 Debug.Log(
@@ -541,24 +581,7 @@ namespace ContentTools.Editor
                         }
                     }
                 }
-
-
-                //using (new EditorGUILayout.HorizontalScope())
-                //{
-                //    GUILayout.Label("Current Target:", GUILayout.Width(100));
-                //    EditorGUI.BeginDisabledGroup(true);
-                //    EditorGUILayout.TextField(string.IsNullOrEmpty(_buildLocation) ? "<not set>" : _buildLocation);
-                //    EditorGUI.EndDisabledGroup();
-                //}
-                //
-                //if (string.IsNullOrEmpty(_buildLocation))
-                //{
-                //    EditorGUILayout.HelpBox("Choose a game above to set the build output target. Users cannot set a custom path.", MessageType.Info);
-                //}
-                //else
-                //{
-                //    EditorGUILayout.HelpBox("Builds will be written under the selected game's StreamingAssets folder.", MessageType.None);
-                //}
+                
             }
         }
 
@@ -1131,8 +1154,92 @@ namespace ContentTools.Editor
                 }
             }
         }
+        
+        private bool _modioFoldout = true;
+        private string _emailInput = "";
+        private string _codeInput = "";
+        private string _statusMsg = "";
+private Texture2D _modioLogo;
 
-        private bool EnsureValidBuildFolder(out string error)
+void DrawModIoSection()
+{
+    using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+    {
+        _modioFoldout = EditorGUILayout.Foldout(_modioFoldout, "mod.io Login", true);
+        if (!_modioFoldout) return;
+
+        if (_modioLogo == null) _modioLogo = Resources.Load<Texture2D>("modio_Logo");
+
+        using (new EditorGUILayout.HorizontalScope())
+        {
+            var logoWidth = 86f;
+            var logoHeight = 58f;
+            GUILayout.Space(4);
+            var rect = GUILayoutUtility.GetRect(logoWidth, logoHeight, GUILayout.Width(logoWidth),
+                GUILayout.Height(logoHeight));
+            if (_modioLogo != null) GUI.DrawTexture(rect, _modioLogo, ScaleMode.ScaleToFit, true);
+
+            GUILayout.Space(5);
+
+            using (new EditorGUILayout.VerticalScope())
+            {
+
+                if (!ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame())
+                {
+                    // Not authorized for this game: prompt for email/code
+                    _emailInput = EditorGUILayout.TextField("Email", _emailInput);
+                    _codeInput = EditorGUILayout.TextField("Code", _codeInput);
+
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        if (GUILayout.Button("Send Code"))
+                            ContentTools.ModIo.ModIoAuth.BeginEmailRequest(_emailInput, s =>
+                            {
+                                _statusMsg = s;
+                                Debug.Log(_statusMsg);
+                                Repaint();
+                            });
+
+                        if (GUILayout.Button("Verify"))
+                            ContentTools.ModIo.ModIoAuth.ExchangeCode(_emailInput, _codeInput, s =>
+                            {
+                                _statusMsg = s;
+                                Debug.Log(_statusMsg);
+                                Repaint();
+                            });
+                    }
+                }
+                else
+                {
+                    // Already authorized for this game's API base
+                    EditorGUILayout.LabelField("✅ Authorized as:", ContentTools.ModIo.ModIoAuth.CurrentEmail);
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        var currentGame = EditorPrefs.GetString("ModIo.CurrentGame", "this game");
+                        if (GUILayout.Button($"Logout ({currentGame})", GUILayout.Width(150)))
+                        {
+                            ContentTools.ModIo.ModIoAuth.ClearForCurrentGame();
+                            _statusMsg = $"Logged out for {currentGame}.";
+                            Debug.Log(_statusMsg);
+                            Repaint();
+                        }
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(_statusMsg))
+                {
+                    GUILayout.Space(4);
+                    EditorGUILayout.HelpBox(_statusMsg, MessageType.None);
+                }
+            }
+        }
+
+        GUILayout.Space(4);
+    }
+}
+
+
+private bool EnsureValidBuildFolder(out string error)
         {
             error = null;
 
