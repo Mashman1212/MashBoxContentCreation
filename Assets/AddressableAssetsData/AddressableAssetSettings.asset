@@ -44,12 +44,14 @@ MonoBehaviour:
   m_BuildAddressablesWithPlayerBuild: 0
   m_overridePlayerVersion: NewContentPack
   m_GroupAssets:
-  - {fileID: 11400000, guid: cfeda90ab0603ff4cb33527fb10e4047, type: 2}
-  - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
   - {fileID: 11400000, guid: 2cf9327dae933e64b90d580aa79b90a5, type: 2}
-  - {fileID: 0}
-  - {fileID: 0}
+  - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
+  - {fileID: 11400000, guid: 8e647dd2108332d4ca9b899272013af2, type: 2}
+  - {fileID: 11400000, guid: cfeda90ab0603ff4cb33527fb10e4047, type: 2}
+  - {fileID: 11400000, guid: 19fe7d28c9d09204b9b823ad4ee21d64, type: 2}
+  - {fileID: 11400000, guid: fbb90bdcf5486fe4d97ba6a259728d63, type: 2}
   - {fileID: 11400000, guid: 5a36b0bd3bb8a4340b5a2331e808a8f8, type: 2}
+  - {fileID: 11400000, guid: 1fd9aaa55ed1ef14bbf1b8544daa20a0, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
     m_CleanupStreamingAssetsAfterBuilds: 1

@@ -9,6 +9,7 @@ using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEngine;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
@@ -1465,33 +1466,116 @@ namespace ContentTools.Editor
                 }
             }
         }
-        
-        // at class scope
+
         private async void PublishToModioAsync(ContentPackDefinition p, string currentGame)
         {
             try
             {
-                // (you already validated items/summary/screenshot before calling this)
-                EditorUtility.DisplayProgressBar("Publish to Mod.io", "Exporting unitypackage…", 0.3f);
-                var packagePath = BuildUnityPackageForPack(p); // builds items + deps + screenshot + icons
+                EditorUtility.DisplayProgressBar("Publish to Mod.io", "Exporting unitypackage…", 0.25f);
+                var packagePath = BuildUnityPackageForPack(p);
 
-                EditorUtility.DisplayProgressBar("Publish to Mod.io", "Requesting upload URL…", 0.6f);
-                await UploadUnityPackageAsync(packagePath);    // <-- your async uploader
+                EditorUtility.DisplayProgressBar("Publish to Mod.io", "Requesting upload URL…", 0.45f);
+                var (jobId, uploadUrl) = await RequestUploadUrlAsync(Path.GetFileName(packagePath)); // NEW
 
-                EditorUtility.DisplayProgressBar("Publish to Mod.io", "Finalizing…", 0.9f);
+                // Upload with progress
+                var progress = new Progress<float>(f =>
+                {
+                    // clamp + a little range; show 45–95% during upload
+                    var pct = Mathf.Clamp01(f);
+                    EditorUtility.DisplayProgressBar("Publish to Mod.io",
+                        $"Uploading… {(int)(pct * 100f)}%", 0.45f + pct * 0.50f);
+                });
+
+                await UploadFileToSasAsync(packagePath, uploadUrl, progress); // NEW
+
+                EditorUtility.DisplayProgressBar("Publish to Mod.io", "Finalizing…", 0.98f);
                 EditorUtility.ClearProgressBar();
 
                 EditorUtility.DisplayDialog("Publish Complete",
                     $"Your pack '{p.name}' was uploaded successfully to {currentGame}.", "OK");
                 Debug.Log($"[ContentPackBuilder] Uploaded unitypackage: {packagePath}");
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 EditorUtility.ClearProgressBar();
                 Debug.LogError($"[ContentPackBuilder] Publish failed: {ex.Message}");
                 EditorUtility.DisplayDialog("Publish Failed", ex.Message, "OK");
             }
         }
+        
+
+private static async Task<(string jobId, string uploadUrl)> RequestUploadUrlAsync(string fileName)
+{
+    using var http = new HttpClient();
+    var form = new FormUrlEncodedContent(new[] { new KeyValuePair<string,string>("fileName", fileName) });
+    var req = await http.PostAsync(UploaderEndpoint, form);
+    var body = await req.Content.ReadAsStringAsync();
+    if (!req.IsSuccessStatusCode)
+        throw new Exception($"Proxy request failed: {(int)req.StatusCode} {req.ReasonPhrase}\n{body}");
+
+    var data = JsonUtility.FromJson<UploadResponse>(body);
+    if (data == null || string.IsNullOrEmpty(data.uploadUrl))
+        throw new Exception("Invalid proxy response (missing uploadUrl).");
+
+    return (data.jobId, data.uploadUrl);
+}
+
+// Content that reports progress while HttpClient streams it
+private sealed class ProgressStreamContent : HttpContent
+{
+    private readonly Stream _source;
+    private readonly int _bufferSize;
+    private readonly IProgress<float> _progress; // 0..1
+    private readonly long _contentLength;
+
+    public ProgressStreamContent(Stream source, int bufferSize, IProgress<float> progress)
+    {
+        _source = source ?? throw new ArgumentNullException(nameof(source));
+        _bufferSize = Mathf.Max(8 * 1024, bufferSize);
+        _progress = progress;
+        _contentLength = source.CanSeek ? source.Length : -1;
+        if (_contentLength >= 0) Headers.ContentLength = _contentLength;
+        Headers.Add("x-ms-blob-type", "BlockBlob"); // Azure Blob requirement for simple PUT
+    }
+
+    protected override async Task SerializeToStreamAsync(Stream target, TransportContext context)
+    {
+        var buffer = new byte[_bufferSize];
+        long total = 0;
+        int read;
+        while ((read = await _source.ReadAsync(buffer, 0, buffer.Length)) > 0)
+        {
+            await target.WriteAsync(buffer, 0, read);
+            total += read;
+            if (_contentLength > 0) _progress?.Report((float)total / _contentLength);
+        }
+
+        _progress?.Report(1f);
+    }
+
+    protected override bool TryComputeLength(out long length)
+    {
+        if (_contentLength >= 0) { length = _contentLength; return true; }
+        length = 0;
+        return false;
+    }
+}
+
+private static async Task UploadFileToSasAsync(string filePath, string uploadUrl, IProgress<float> progress)
+{
+    using var http = new HttpClient();
+    using var fs = File.OpenRead(filePath);
+
+    using var content = new ProgressStreamContent(fs, 128 * 1024, progress);
+    using var request = new HttpRequestMessage(HttpMethod.Put, uploadUrl) { Content = content };
+
+    // (optional, but helps huge files) start sending without buffering the whole response
+    var res = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+    if (!res.IsSuccessStatusCode)
+        throw new Exception($"Upload failed: {(int)res.StatusCode} {res.ReasonPhrase}");
+}
+
+
 
 
         private bool _modioFoldout = true;
