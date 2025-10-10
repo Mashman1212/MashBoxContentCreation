@@ -45,6 +45,7 @@ MonoBehaviour:
     - Headset
     - Griptape
     - Wheel
+    - Peg
     - Urethane
     - Grip
     - Bar End
@@ -134,6 +135,11 @@ MonoBehaviour:
     RequiredPatterns: []
   - AppliesToSuperType: Scooter
     AppliesToType: Bar End
+    AppliesToBrand: 
+    RequiredChildren: []
+    RequiredPatterns: []
+  - AppliesToSuperType: Scooter
+    AppliesToType: Peg
     AppliesToBrand: 
     RequiredChildren: []
     RequiredPatterns: []

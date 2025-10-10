@@ -10,7 +10,7 @@
     "AllowedPairs": [
         {
             "SuperType": "Scooter",
-            "Types": ["Deck","Bars","Clamp","Forks","Headset","Griptape","Wheel","Urethane","Grip","Bar End"]
+            "Types": ["Deck","Bars","Clamp","Forks","Headset","Griptape","Wheel","Peg","Urethane","Grip","Bar End"]
         },
         {
             "SuperType": "BMX",
@@ -95,6 +95,14 @@
         {
             "AppliesToSuperType": "Scooter",
             "AppliesToType": "Bar End",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+            ],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "Scooter",
+            "AppliesToType": "Peg",
             "AppliesToBrand": "",
             "RequiredChildren": [
             ],
