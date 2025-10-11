@@ -645,9 +645,12 @@ namespace ContentTools.Editor
                 if (GUILayout.Button("Create Pack Data", GUILayout.Width(110)))
                 {
                     string safe = SanitizePackName(_newPackName);
-                    if (string.IsNullOrWhiteSpace(safe))
+                    if (string.IsNullOrWhiteSpace(safe) || !char.IsLetter(safe[0]))
                     {
-                        EditorUtility.DisplayDialog("Invalid Name", "Enter a valid pack name.", "OK");
+                        EditorUtility.DisplayDialog(
+                            "Invalid Name",
+                            "Name must start with a letter and may contain only letters, digits, and spaces (no punctuation or underscores).",
+                            "OK");
                     }
                     else if (PackNameExists(safe, out var existingPath))
                     {
@@ -658,13 +661,13 @@ namespace ContentTools.Editor
                     else if (AddressablesGroupExists(safe))
                     {
                         EditorUtility.DisplayDialog("Duplicate Group",
-                            $"An Addressables Group named '{safe}' already exists.",
-                            "OK");
+                            $"An Addressables Group named '{safe}' already exists.", "OK");
                     }
                     else
                     {
                         CreatePackWithName(safe);
                     }
+
                 }
 
                 GUI.enabled = true;
@@ -1050,17 +1053,22 @@ namespace ContentTools.Editor
                                     (newName) =>
                                     {
                                         var safe = SanitizePackName(newName);
-                                        if (string.IsNullOrEmpty(safe) || safe == p.name) return;
+                                        if (string.IsNullOrWhiteSpace(safe) || safe == p.name) return;
 
-                                        if (safe != newName)
-                                            EditorUtility.DisplayDialog("Name Adjusted",
-                                                "Only letters and digits are allowed. Your input was adjusted to:\n\n" + safe,
+                                        if (!char.IsLetter(safe[0]))
+                                        {
+                                            EditorUtility.DisplayDialog(
+                                                "Invalid Name",
+                                                "Name must start with a letter and may contain only letters, digits, and spaces (no punctuation or underscores).",
                                                 "OK");
+                                            return;
+                                        }
 
                                         if (PackNameExists(safe, out var existingPath))
                                         {
                                             EditorUtility.DisplayDialog("Duplicate Name",
-                                                $"A ContentPackDefinition named '{safe}' already exists:\n{existingPath}", "OK");
+                                                $"A ContentPackDefinition named '{safe}' already exists:\n{existingPath}",
+                                                "OK");
                                             return;
                                         }
                                         if (AddressablesGroupExists(safe))
@@ -1075,7 +1083,6 @@ namespace ContentTools.Editor
                                         AssetDatabase.SaveAssets();
                                         Debug.Log($"[ContentPackBuilder] Renamed pack from '{p.name}' to '{safe}'");
                                     }
-
                                 );
                             }
 
@@ -2108,9 +2115,16 @@ private static async Task UploadFileToSasAsync(string filePath, string uploadUrl
 
             var sb = new System.Text.StringBuilder(raw.Length);
             foreach (char c in raw.Trim())
-                if (char.IsLetterOrDigit(c)) sb.Append(c);   // keep only A–Z a–z 0–9
+            {
+                if (char.IsLetterOrDigit(c) || c == ' ')
+                    sb.Append(c);                 // allow A–Z a–z 0–9 and space
+                // everything else (punctuation, underscores, symbols) is dropped
+            }
 
-            return sb.ToString();
+            // Collapse multiple spaces to a single space (nice-to-have)
+            var s = System.Text.RegularExpressions.Regex.Replace(sb.ToString(), @"\s{2,}", " ").Trim();
+
+            return s;
         }
 
 
