@@ -1041,27 +1041,47 @@ namespace ContentTools.Editor
 
                             if (GUILayout.Button("Rename", GUILayout.Width(90)))
                             {
+                                // Inside the Rename button callback, replace the validation with:
                                 RenameDialog.Show(
                                     "Rename Content Pack",
                                     $"Enter a new name for '{p.name}':",
                                     p.name,
                                     (newName) =>
                                     {
-                                        if (string.IsNullOrEmpty(newName) || newName == p.name)
-                                            return;
-
-                                        if (newName.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
+                                        var safe = SanitizePackName(newName);
+                                        if (string.IsNullOrEmpty(safe))
                                         {
-                                            EditorUtility.DisplayDialog("Invalid Name",
-                                                "Pack name contains invalid characters.", "OK");
+                                            EditorUtility.DisplayDialog("Invalid Name", "Enter a valid pack name (letters, digits, underscore).", "OK");
+                                            return;
+                                        }
+
+                                        if (safe != newName)
+                                        {
+                                            EditorUtility.DisplayDialog("Name Adjusted",
+                                                $"Punctuation and spaces are not allowed.\n" +
+                                                $"Your input was adjusted to:\n\n{safe}",
+                                                "OK");
+                                        }
+
+                                        if (PackNameExists(safe, out var existingPath))
+                                        {
+                                            EditorUtility.DisplayDialog("Duplicate Name",
+                                                $"A ContentPackDefinition named '{safe}' already exists:\n{existingPath}",
+                                                "OK");
+                                            return;
+                                        }
+
+                                        if (AddressablesGroupExists(safe))
+                                        {
+                                            EditorUtility.DisplayDialog("Duplicate Group",
+                                                $"An Addressables Group named '{safe}' already exists.", "OK");
                                             return;
                                         }
 
                                         string assetPath = AssetDatabase.GetAssetPath(p);
-                                        AssetDatabase.RenameAsset(assetPath, newName);
+                                        AssetDatabase.RenameAsset(assetPath, safe);
                                         AssetDatabase.SaveAssets();
-
-                                        Debug.Log($"[ContentPackBuilder] Renamed pack from '{p.name}' to '{newName}'");
+                                        Debug.Log($"[ContentPackBuilder] Renamed pack from '{p.name}' to '{safe}'");
                                     }
                                 );
                             }
@@ -2088,12 +2108,26 @@ private static async Task UploadFileToSasAsync(string filePath, string uploadUrl
             }
         }
 
+// REPLACE the existing SanitizePackName with this:
         private static string SanitizePackName(string raw)
         {
-            if (string.IsNullOrEmpty(raw)) return string.Empty;
-            var invalid = Path.GetInvalidFileNameChars();
-            var chars = raw.Trim().Select(c => invalid.Contains(c) ? '_' : c).ToArray();
-            return new string(chars);
+            if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
+
+            // keep letters and digits only
+            var sb = new System.Text.StringBuilder(raw.Length);
+            foreach (char c in raw.Trim())
+                if (char.IsLetterOrDigit(c)) sb.Append(c);
+
+            var s = sb.ToString();
+
+            // enforce leading letter
+            if (s.Length > 0 && !char.IsLetter(s[0]))
+                s = "Pack" + s;
+
+            // optional: cap length
+            if (s.Length > 64) s = s.Substring(0, 64);
+
+            return s;
         }
 
         private static bool PackNameExists(string packName, out string path)
