@@ -127,8 +127,24 @@ namespace ContentTools.Editor
             GetWindow<ContentPackBuilderWindow>(true, "MG Content Manager");
 
             EditorPrefs.SetString(PREF_KEY_PROXY_BASE, DEFAULT_PROXY_BASE);
+            
+            System.Net.ServicePointManager.Expect100Continue = false;
+            System.Net.ServicePointManager.DefaultConnectionLimit = 64;
+            SharedHttp.DefaultRequestHeaders.ExpectContinue = false;
         }
+        
+        private static readonly HttpClient SharedHttp = CreateSharedHttp();
 
+        private static HttpClient CreateSharedHttp()
+        {
+            var http = new HttpClient
+            {
+                Timeout = TimeSpan.FromMinutes(30)
+            };
+            http.DefaultRequestHeaders.ExpectContinue = false;
+            return http;
+        }
+        
         private void OnEnable()
         {
             _headerTex = Resources.Load<Texture2D>(HEADER_RESOURCE_NAME);
@@ -1551,10 +1567,7 @@ namespace ContentTools.Editor
             return (data.jobId, data.uploadUrl);
         }
 
-private static readonly HttpClient SharedHttp = new HttpClient
-{
-    Timeout = TimeSpan.FromMinutes(30) // generous default for small requests
-};
+        
 
 // Content that reports progress while HttpClient streams it
 private sealed class ProgressStreamContent : HttpContent
@@ -1563,29 +1576,36 @@ private sealed class ProgressStreamContent : HttpContent
     private readonly int _bufferSize;
     private readonly IProgress<float> _progress; // 0..1
     private readonly long _contentLength;
-
-    public ProgressStreamContent(Stream source, int bufferSize, IProgress<float> progress)
+    private readonly int _minMsBetweenReports;
+    
+    public ProgressStreamContent(Stream source, int bufferSize, IProgress<float> progress, int minMsBetweenReports = 150)
     {
         _source = source ?? throw new ArgumentNullException(nameof(source));
         _bufferSize = Mathf.Max(8 * 1024, bufferSize);
         _progress = progress;
+        _minMsBetweenReports = minMsBetweenReports;
         _contentLength = source.CanSeek ? source.Length : -1;
         if (_contentLength >= 0) Headers.ContentLength = _contentLength;
         Headers.Add("x-ms-blob-type", "BlockBlob"); // Azure Blob requirement for simple PUT
     }
 
-    protected override async Task SerializeToStreamAsync(Stream target, TransportContext context)
+    protected override async Task SerializeToStreamAsync(Stream target, TransportContext ctx)
     {
         var buffer = new byte[_bufferSize];
-        long total = 0;
-        int read;
+        long total = 0; int read;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
         while ((read = await _source.ReadAsync(buffer, 0, buffer.Length)) > 0)
         {
             await target.WriteAsync(buffer, 0, read);
             total += read;
-            if (_contentLength > 0) _progress?.Report((float)total / _contentLength);
-        }
 
+            if (_contentLength > 0 && sw.ElapsedMilliseconds >= _minMsBetweenReports)
+            {
+                _progress?.Report((float)total / _contentLength);
+                sw.Restart();
+            }
+        }
         _progress?.Report(1f);
     }
 
@@ -1599,18 +1619,18 @@ private sealed class ProgressStreamContent : HttpContent
 
 private static async Task UploadFileToSasAsync(string filePath, string uploadUrl, IProgress<float> progress)
 {
-    // Use a dedicated HttpClient with infinite timeout for large uploads
+    // Optional: per-host limit bump that actually works on Mono
+    var sp = System.Net.ServicePointManager.FindServicePoint(new Uri(uploadUrl));
+    sp.ConnectionLimit = Math.Max(sp.ConnectionLimit, 64);
+    sp.Expect100Continue = false;
+
     using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
 
     using var fs = File.OpenRead(filePath);
-    using var content = new ProgressStreamContent(fs, 128 * 1024, progress); // 128KB chunks are fine
-    using var request = new HttpRequestMessage(HttpMethod.Put, uploadUrl) { Content = content };
+    using var content = new ProgressStreamContent(fs, 1 * 1024 * 1024, progress /* 1MB chunks */);
+    using var req = new HttpRequestMessage(HttpMethod.Put, uploadUrl) { Content = content };
 
-    // Azure Blob requires this for simple PUT-to-BlockBlob:
-    // We already set "x-ms-blob-type" inside ProgressStreamContent.Headers
-    var res = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead)
-        .ConfigureAwait(false);
-
+    var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
     if (!res.IsSuccessStatusCode)
         throw new Exception($"Upload failed: {(int)res.StatusCode} {res.ReasonPhrase}");
 }
@@ -1619,7 +1639,7 @@ private static async Task UploadFileToSasAsync(string filePath, string uploadUrl
 
 
 
-        private bool _modioFoldout = true;
+private bool _modioFoldout = true;
         private string _emailInput = "";
         private string _codeInput = "";
         private string _statusMsg = "";
