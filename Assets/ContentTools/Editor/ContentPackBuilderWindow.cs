@@ -1046,31 +1046,23 @@ namespace ContentTools.Editor
                                     "Rename Content Pack",
                                     $"Enter a new name for '{p.name}':",
                                     p.name,
+                                    // REPLACE the rename callback body with this stricter flow:
                                     (newName) =>
                                     {
                                         var safe = SanitizePackName(newName);
-                                        if (string.IsNullOrEmpty(safe))
-                                        {
-                                            EditorUtility.DisplayDialog("Invalid Name", "Enter a valid pack name (letters, digits, underscore).", "OK");
-                                            return;
-                                        }
+                                        if (string.IsNullOrEmpty(safe) || safe == p.name) return;
 
                                         if (safe != newName)
-                                        {
                                             EditorUtility.DisplayDialog("Name Adjusted",
-                                                $"Punctuation and spaces are not allowed.\n" +
-                                                $"Your input was adjusted to:\n\n{safe}",
+                                                "Only letters and digits are allowed. Your input was adjusted to:\n\n" + safe,
                                                 "OK");
-                                        }
 
                                         if (PackNameExists(safe, out var existingPath))
                                         {
                                             EditorUtility.DisplayDialog("Duplicate Name",
-                                                $"A ContentPackDefinition named '{safe}' already exists:\n{existingPath}",
-                                                "OK");
+                                                $"A ContentPackDefinition named '{safe}' already exists:\n{existingPath}", "OK");
                                             return;
                                         }
-
                                         if (AddressablesGroupExists(safe))
                                         {
                                             EditorUtility.DisplayDialog("Duplicate Group",
@@ -1083,6 +1075,7 @@ namespace ContentTools.Editor
                                         AssetDatabase.SaveAssets();
                                         Debug.Log($"[ContentPackBuilder] Renamed pack from '{p.name}' to '{safe}'");
                                     }
+
                                 );
                             }
 
@@ -2113,22 +2106,13 @@ private static async Task UploadFileToSasAsync(string filePath, string uploadUrl
         {
             if (string.IsNullOrWhiteSpace(raw)) return string.Empty;
 
-            // keep letters and digits only
             var sb = new System.Text.StringBuilder(raw.Length);
             foreach (char c in raw.Trim())
-                if (char.IsLetterOrDigit(c)) sb.Append(c);
+                if (char.IsLetterOrDigit(c)) sb.Append(c);   // keep only A–Z a–z 0–9
 
-            var s = sb.ToString();
-
-            // enforce leading letter
-            if (s.Length > 0 && !char.IsLetter(s[0]))
-                s = "Pack" + s;
-
-            // optional: cap length
-            if (s.Length > 64) s = s.Substring(0, 64);
-
-            return s;
+            return sb.ToString();
         }
+
 
         private static bool PackNameExists(string packName, out string path)
         {
