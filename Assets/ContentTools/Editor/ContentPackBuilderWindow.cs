@@ -12,6 +12,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Content_Icon_Capture.Editor;
@@ -1185,10 +1186,18 @@ namespace ContentTools.Editor
                                         {
                                             PublishToModioAsync(p, currentGame);
                                         }
-                                        catch (System.Exception ex)
+                                        catch (TaskCanceledException tce)
                                         {
                                             EditorUtility.ClearProgressBar();
-                                            Debug.LogError($"[ContentPackBuilder] Publish failed: {ex.Message}");
+                                            Debug.LogError($"[ContentPackBuilder] Upload timed out or was canceled. " +
+                                                           $"HttpClient.Timeout may be too low. Details: {tce}");
+                                            EditorUtility.DisplayDialog("Publish Failed",
+                                                "Upload timed out (TaskCanceled). Try again after increasing HttpClient.Timeout.", "OK");
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            EditorUtility.ClearProgressBar();
+                                            Debug.LogError($"[ContentPackBuilder] Publish failed: {ex}");
                                             EditorUtility.DisplayDialog("Publish Failed", ex.Message, "OK");
                                         }
                                     }
@@ -1523,21 +1532,29 @@ namespace ContentTools.Editor
         }
         
 
-private static async Task<(string jobId, string uploadUrl)> RequestUploadUrlAsync(string fileName)
+        private static async Task<(string jobId, string uploadUrl)> RequestUploadUrlAsync(string fileName)
+        {
+            using var form = new FormUrlEncodedContent(new[] { new KeyValuePair<string,string>("fileName", fileName) });
+            using var req = new HttpRequestMessage(HttpMethod.Post, UploaderEndpoint) { Content = form };
+
+            using var res = await SharedHttp.SendAsync(req, HttpCompletionOption.ResponseHeadersRead)
+                .ConfigureAwait(false);
+            var body = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            if (!res.IsSuccessStatusCode)
+                throw new Exception($"Proxy request failed: {(int)res.StatusCode} {res.ReasonPhrase}\n{body}");
+
+            var data = JsonUtility.FromJson<UploadResponse>(body);
+            if (data == null || string.IsNullOrEmpty(data.uploadUrl))
+                throw new Exception("Invalid proxy response (missing uploadUrl).");
+
+            return (data.jobId, data.uploadUrl);
+        }
+
+private static readonly HttpClient SharedHttp = new HttpClient
 {
-    using var http = new HttpClient();
-    var form = new FormUrlEncodedContent(new[] { new KeyValuePair<string,string>("fileName", fileName) });
-    var req = await http.PostAsync(UploaderEndpoint, form);
-    var body = await req.Content.ReadAsStringAsync();
-    if (!req.IsSuccessStatusCode)
-        throw new Exception($"Proxy request failed: {(int)req.StatusCode} {req.ReasonPhrase}\n{body}");
-
-    var data = JsonUtility.FromJson<UploadResponse>(body);
-    if (data == null || string.IsNullOrEmpty(data.uploadUrl))
-        throw new Exception("Invalid proxy response (missing uploadUrl).");
-
-    return (data.jobId, data.uploadUrl);
-}
+    Timeout = TimeSpan.FromMinutes(30) // generous default for small requests
+};
 
 // Content that reports progress while HttpClient streams it
 private sealed class ProgressStreamContent : HttpContent
@@ -1582,17 +1599,22 @@ private sealed class ProgressStreamContent : HttpContent
 
 private static async Task UploadFileToSasAsync(string filePath, string uploadUrl, IProgress<float> progress)
 {
-    using var http = new HttpClient();
-    using var fs = File.OpenRead(filePath);
+    // Use a dedicated HttpClient with infinite timeout for large uploads
+    using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
 
-    using var content = new ProgressStreamContent(fs, 128 * 1024, progress);
+    using var fs = File.OpenRead(filePath);
+    using var content = new ProgressStreamContent(fs, 128 * 1024, progress); // 128KB chunks are fine
     using var request = new HttpRequestMessage(HttpMethod.Put, uploadUrl) { Content = content };
 
-    // (optional, but helps huge files) start sending without buffering the whole response
-    var res = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+    // Azure Blob requires this for simple PUT-to-BlockBlob:
+    // We already set "x-ms-blob-type" inside ProgressStreamContent.Headers
+    var res = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead)
+        .ConfigureAwait(false);
+
     if (!res.IsSuccessStatusCode)
         throw new Exception($"Upload failed: {(int)res.StatusCode} {res.ReasonPhrase}");
 }
+
 
 
 
