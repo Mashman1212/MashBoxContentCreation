@@ -645,11 +645,11 @@ namespace ContentTools.Editor
                 if (GUILayout.Button("Create Pack Data", GUILayout.Width(110)))
                 {
                     string safe = SanitizePackName(_newPackName);
-                    if (string.IsNullOrWhiteSpace(safe) || !char.IsLetter(safe[0]))
+                    if (string.IsNullOrWhiteSpace(safe))
                     {
                         EditorUtility.DisplayDialog(
                             "Invalid Name",
-                            "Name must start with a letter and may contain only letters, digits, and spaces (no punctuation or underscores).",
+                            "Name may contain only letters, digits, and spaces (no punctuation or underscores).",
                             "OK");
                     }
                     else if (PackNameExists(safe, out var existingPath))
@@ -667,6 +667,7 @@ namespace ContentTools.Editor
                     {
                         CreatePackWithName(safe);
                     }
+
 
                 }
 
@@ -1055,15 +1056,6 @@ namespace ContentTools.Editor
                                         var safe = SanitizePackName(newName);
                                         if (string.IsNullOrWhiteSpace(safe) || safe == p.name) return;
 
-                                        if (!char.IsLetter(safe[0]))
-                                        {
-                                            EditorUtility.DisplayDialog(
-                                                "Invalid Name",
-                                                "Name must start with a letter and may contain only letters, digits, and spaces (no punctuation or underscores).",
-                                                "OK");
-                                            return;
-                                        }
-
                                         if (PackNameExists(safe, out var existingPath))
                                         {
                                             EditorUtility.DisplayDialog("Duplicate Name",
@@ -1071,6 +1063,7 @@ namespace ContentTools.Editor
                                                 "OK");
                                             return;
                                         }
+
                                         if (AddressablesGroupExists(safe))
                                         {
                                             EditorUtility.DisplayDialog("Duplicate Group",
@@ -1083,6 +1076,7 @@ namespace ContentTools.Editor
                                         AssetDatabase.SaveAssets();
                                         Debug.Log($"[ContentPackBuilder] Renamed pack from '{p.name}' to '{safe}'");
                                     }
+
                                 );
                             }
 
@@ -2117,16 +2111,14 @@ private static async Task UploadFileToSasAsync(string filePath, string uploadUrl
             foreach (char c in raw.Trim())
             {
                 if (char.IsLetterOrDigit(c) || c == ' ')
-                    sb.Append(c);                 // allow A–Z a–z 0–9 and space
-                // everything else (punctuation, underscores, symbols) is dropped
+                    sb.Append(c);   // allow A–Z a–z 0–9 and space
+                // everything else is dropped
             }
 
-            // Collapse multiple spaces to a single space (nice-to-have)
+            // collapse multiple spaces and trim again
             var s = System.Text.RegularExpressions.Regex.Replace(sb.ToString(), @"\s{2,}", " ").Trim();
-
             return s;
         }
-
 
         private static bool PackNameExists(string packName, out string path)
         {
