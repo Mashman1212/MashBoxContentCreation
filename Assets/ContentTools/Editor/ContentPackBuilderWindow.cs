@@ -1491,9 +1491,14 @@ namespace ContentTools.Editor
                 EditorUtility.DisplayProgressBar("Publish to Mod.io", "Finalizing…", 0.98f);
                 EditorUtility.ClearProgressBar();
 
-                EditorUtility.DisplayDialog("Publish Complete",
-                    $"Your pack '{p.name}' was uploaded successfully to {currentGame}.", "OK");
-                Debug.Log($"[ContentPackBuilder] Uploaded unitypackage: {packagePath}");
+                EditorUtility.DisplayDialog(
+                    "Publish Complete",
+                    $"✅ Your pack '{p.name}' was uploaded successfully to {currentGame}.\n\n" +
+                    "Your mod has been uploaded as *hidden*.\n\n" +
+                    "Please log in to your mod.io account, find your mod, and toggle it to **Public** when you’re ready to release.",
+                    "OK"
+                );
+                Debug.Log($"[ContentPackBuilder] Uploaded unitypackage: {packagePath} (hidden by default — user must make it public)");
             }
             catch (Exception ex)
             {
@@ -2730,6 +2735,12 @@ private static string SanitizeFileName(string raw)
         }
 
 
+        [MenuItem("Tools/MashBox/Modio/PrintCurrentUserToken")]
+        public static void PrintCurrentUserToken()
+        {
+            Debug.Log(ContentTools.ModIo.ModIoAuth.CurrentToken);
+        }
+        
     }
 }
 #endif
