@@ -1494,7 +1494,7 @@ namespace ContentTools.Editor
                 EditorUtility.DisplayDialog(
                     "Publish Complete",
                     $"✅ Your pack '{p.name}' was uploaded successfully to {currentGame}.\n\n" +
-                    "Your mod has been uploaded as *hidden*.\n\n" +
+                    "Your mod will be set as *hidden*.\n\n" +
                     "Please log in to your mod.io account, find your mod, and toggle it to **Public** when you’re ready to release.",
                     "OK"
                 );
