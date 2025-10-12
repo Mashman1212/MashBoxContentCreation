@@ -77,6 +77,8 @@ namespace ContentTools.Editor
 
         private const string UGC_REQUEST_PATH = "https://modio-proxy-cgf2e7hvc6fggsh6.centralus-01.azurewebsites.net/ugc/request-upload";
 
+        
+        
         private static string ProxyHostBase => EditorPrefs.GetString(PREF_KEY_PROXY_BASE, DEFAULT_PROXY_BASE)
             .TrimEnd('/').Replace("/modio", "");
 
@@ -118,6 +120,8 @@ namespace ContentTools.Editor
         private const string HEADER_RESOURCE_NAME = "ContentManager_Header";
         private Texture2D _headerTex;
 
+        
+        
 // Footer (button bar) height
         private const float FOOTER_H = 40f;
 
@@ -2097,6 +2101,7 @@ private bool _modioFoldout = true;
 
         private void RefreshPacks()
         {
+            var previous = new Dictionary<string, bool>(_foldouts);
             _packs.Clear();
             _foldouts.Clear();
 
@@ -2119,7 +2124,11 @@ private bool _modioFoldout = true;
             {
                 pack.RemoveMissingReferences();
             }
-
+            foreach (var pack in _packs)
+            {
+                var path = AssetDatabase.GetAssetPath(pack);
+                _foldouts[path] = previous.ContainsKey(path) ? previous[path] : true;
+            }
             Repaint();
         }
 
