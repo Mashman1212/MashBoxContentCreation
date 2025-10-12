@@ -23,7 +23,7 @@
     {
       "match": "Scooter_Griptape_*",
       "position": [0.0, 0.0, 0.0],
-      "euler": [90.0, 180.0, 0.0]
+      "euler": [90.0, 0.0, 0.0]
     },
     {
       "match": "Scooter_Urethane_*",
