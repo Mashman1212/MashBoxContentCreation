@@ -1629,9 +1629,10 @@ private static async Task UploadFileToSasAsync(string filePath, string uploadUrl
     sp.Expect100Continue = false;
 
     using var http = new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
-
+    http.DefaultRequestHeaders.ExpectContinue = false;
+    
     using var fs = File.OpenRead(filePath);
-    using var content = new ProgressStreamContent(fs, 1 * 1024 * 1024, progress /* 1MB chunks */);
+    using var content = new ProgressStreamContent(fs, 4 * 1024 * 1024, progress, minMsBetweenReports: 300);
     using var req = new HttpRequestMessage(HttpMethod.Put, uploadUrl) { Content = content };
 
     var res = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
@@ -2500,10 +2501,10 @@ private static string BuildUnityPackageForPack(ContentPackDefinition pack)
     }
 
     // Icons (if you have a list)
-    TryAddTextureListField(pack, "icons", roots);
-    TryAddTextureListField(pack, "_icons", roots);
-    TryAddTextureListField(pack, "iconTextures", roots);
-    TryAddTextureListField(pack, "additionalImages", roots);
+    //TryAddTextureListField(pack, "icons", roots);
+    //TryAddTextureListField(pack, "_icons", roots);
+    //TryAddTextureListField(pack, "iconTextures", roots);
+    //TryAddTextureListField(pack, "additionalImages", roots);
 
     // 2) Expand with dependencies (keep content-only)
     var toExport = AssetDatabase.GetDependencies(roots.Distinct().ToArray(), true)
