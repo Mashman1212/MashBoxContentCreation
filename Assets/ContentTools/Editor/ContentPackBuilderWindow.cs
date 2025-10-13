@@ -332,7 +332,7 @@ namespace ContentTools.Editor
                         var (txt, style) = _cookerStatus switch
                         {
                             CookerStatus.Online  => ("Online ", EditorStyles.boldFont),
-                            CookerStatus.Stale   => ("Not Connected ", EditorStyles.boldFont),
+                            CookerStatus.Stale   => ("Offline", EditorStyles.boldFont),
                             CookerStatus.Offline => ("Offline ", EditorStyles.boldFont),
                             CookerStatus.Error   => ("Error ", EditorStyles.boldFont),
                             _                    => ("Checking…", EditorStyles.boldFont),
@@ -2930,7 +2930,7 @@ private async System.Threading.Tasks.Task PollCookerStatusAsync()
                 else if (ageSec > HeartbeatFreshnessSeconds)
                 {
                     _cookerStatus = CookerStatus.Stale;
-                    _cookerNote = $"not connected";
+                    _cookerNote = $"offline";
                 }
                 else
                 {
