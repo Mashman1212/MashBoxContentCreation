@@ -2009,6 +2009,34 @@ private bool _modioFoldout = true;
             }
         }
 
+        private async void PreflightAndPublishAsync(ContentPackDefinition p, string currentGame)
+        {
+            // 0) Quick “/me” check
+            var (ok, err) = await ValidateModioTokenAsync();
+            if (!ok)
+            {
+                // Auto-logout for this game and inform the user
+                ContentTools.ModIo.ModIoAuth.ClearForCurrentGame();
+                _statusMsg = $"🔒 Your mod.io session for {currentGame} is no longer valid and has been cleared.\n{err}";
+                Debug.LogWarning($"[ContentPackBuilder] Mod.io token invalid for {currentGame}. Logged out. Details: {err}");
+                Repaint();
+
+                EditorUtility.DisplayDialog(
+                    "mod.io Login Expired",
+                    "Your mod.io session has expired or was revoked.\n\n" +
+                    "You’ve been logged out for this game. Please re-login in the Mod.io section, then try publishing again.",
+                    "OK"
+                );
+                return;
+            }
+
+            // 1) Token is valid → carry on with your existing flow
+            //PublishToModioAsync(p, currentGame);
+            PreflightAndPublishAsync(p, currentGame);
+            
+        }
+
+        
         // ---------- Validation helpers (live inline UI) ----------
         private void ValidateItemLive(GameObject go)
         {
@@ -2018,6 +2046,38 @@ private bool _modioFoldout = true;
             Repaint();
         }
 
+        private static async Task<(bool ok, string error)> ValidateModioTokenAsync()
+        {
+            // Pull what your UI already stores
+            var apiBase = EditorPrefs.GetString("ModIo.ApiBase", "https://api.mod.io/v1").TrimEnd('/');
+            var token   = ContentTools.ModIo.ModIoAuth.CurrentToken;
+
+            if (string.IsNullOrEmpty(token))
+                return (false, "No mod.io token is set for the current game.");
+
+            try
+            {
+                var url = $"{apiBase}/me";
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(20) };
+                http.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+                using var res = await http.GetAsync(url);
+                var body = await res.Content.ReadAsStringAsync();
+
+                if ((int)res.StatusCode == 200)
+                    return (true, null);
+
+                // Treat any non-200 as invalid; common: 401 expired/revoked/malformed
+                return (false, $"HTTP {(int)res.StatusCode}: {body}");
+            }
+            catch (Exception ex)
+            {
+                return (false, $"Token check failed: {ex.Message}");
+            }
+        }
+
+        
         private void DrawItemIssuesUI(GameObject go, bool onlyValid)
         {
             if (!go) return;
