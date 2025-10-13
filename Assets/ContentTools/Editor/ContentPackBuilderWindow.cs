@@ -77,7 +77,17 @@ namespace ContentTools.Editor
 
         private const string UGC_REQUEST_PATH = "https://modio-proxy-cgf2e7hvc6fggsh6.centralus-01.azurewebsites.net/ugc/request-upload";
 
-        
+        // --- Cooker heartbeat (cached, GUI-safe) ---
+        private enum CookerStatus { Unknown, Online, Stale, Offline, Error }
+        private CookerStatus _cookerStatus = CookerStatus.Unknown;
+        private string _cookerNote = "checking…";
+        private bool _statusInFlight = false;
+        private double _nextStatusPollAt = 0;   // EditorApplication.timeSinceStartup seconds
+        private const int HeartbeatFreshnessSeconds = 30;
+
+// Public heartbeat URL written by the headless cooker (anon-read)
+        private const string COOKER_HEARTBEAT_URL =
+            "https://ugccooker.blob.core.windows.net/status/heartbeat.json";
         
         private static string ProxyHostBase => EditorPrefs.GetString(PREF_KEY_PROXY_BASE, DEFAULT_PROXY_BASE)
             .TrimEnd('/').Replace("/modio", "");
@@ -154,7 +164,7 @@ namespace ContentTools.Editor
             _headerTex = Resources.Load<Texture2D>(HEADER_RESOURCE_NAME);
             _settings = AddressableAssetSettingsDefaultObject.Settings;
             _buildLocation = EditorPrefs.GetString(PREF_KEY_BUILD_LOCATION, DefaultBuildFolderRel);
-
+            _nextStatusPollAt = EditorApplication.timeSinceStartup + 0.5;
 
             _lastChosenAppId = long.TryParse(EditorPrefs.GetString(PREF_KEY_LAST_APP, "0"), out var v) ? v : 0;
 
@@ -187,6 +197,7 @@ namespace ContentTools.Editor
             EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation ?? string.Empty);
             EditorPrefs.SetString(PREF_KEY_LAST_APP, _lastChosenAppId.ToString());
             EditorApplication.projectChanged -= OnProjectChanged;
+            _statusInFlight = false;
         }
 
         private void OnProjectChanged()
@@ -297,6 +308,8 @@ namespace ContentTools.Editor
         {
             _currentGameName = EditorPrefs.GetString("ModIo.CurrentGame", "this game");
 
+            MaybePollCookerStatus();
+            
             // 1) Header (fixed, layout-managed)
             DrawHeaderBanner();
 
@@ -313,6 +326,21 @@ namespace ContentTools.Editor
                     DrawModIoSection();
                     GUILayout.Space(6);
 
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        GUILayout.Label("Publishing Servers:", GUILayout.Width(120));
+                        var (txt, style) = _cookerStatus switch
+                        {
+                            CookerStatus.Online  => ("Online ", EditorStyles.boldFont),
+                            CookerStatus.Stale   => ("Not Connected ", EditorStyles.boldFont),
+                            CookerStatus.Offline => ("Offline ", EditorStyles.boldFont),
+                            CookerStatus.Error   => ("Error ", EditorStyles.boldFont),
+                            _                    => ("Checking…", EditorStyles.boldFont),
+                        };
+                        GUILayout.Label(txt);
+                        GUILayout.FlexibleSpace();
+                    }
+                    
                     // Validation Rules auto-expands (no inner scroll)
                     DrawRulesOverview();
                     GUILayout.Space(6);
@@ -1121,119 +1149,119 @@ namespace ContentTools.Editor
                             }
 
 // --- Show "Publish to Mod.io" only if authorized ---
-                            if (ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame())
-                            {
-                                string currentGame = EditorPrefs.GetString("ModIo.CurrentGame", "Unknown");
+if (ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame())
+{
+    string currentGame = EditorPrefs.GetString("ModIo.CurrentGame", "Unknown");
 
-                                if (GUILayout.Button($"Publish to {currentGame} Mod.io", GUILayout.Width(190)))
-                                {
-                                    // 🧩 Validation: must have content
-                                    if (p._items == null || p._items.Count == 0)
-                                    {
-                                        EditorUtility.DisplayDialog(
-                                            "Empty Pack",
-                                            $"This content pack '{p.name}' is empty.\n\n" +
-                                            "You must add content before publishing to Mod.io.",
-                                            "OK"
-                                        );
-                                        Debug.LogWarning(
-                                            $"[ContentPackBuilder] Attempted to publish empty pack '{p.name}'.");
-                                        return;
-                                    }
+    // ✅ Gate by: cooker online + ALL items valid (no errors, no warnings)
+    bool cookerOk = (_cookerStatus == CookerStatus.Online);
+    var (allValid, errCount, warnCount) = ComputePackValidation(p, _rules);
 
-                                    // 🧩 Validation: must have summary
-                                    if (string.IsNullOrWhiteSpace(p.summary))
-                                    {
-                                        EditorUtility.DisplayDialog(
-                                            "Missing Summary",
-                                            $"This content pack '{p.name}' does not have a summary.\n\n" +
-                                            "A summary is required before publishing to Mod.io.",
-                                            "OK"
-                                        );
-                                        Debug.LogWarning($"[ContentPackBuilder] Missing summary for '{p.name}'.");
-                                        return;
-                                    }
+    using (new EditorGUI.DisabledScope(!(cookerOk)))
+    {
+        if (GUILayout.Button($"Publish to {currentGame} Mod.io", GUILayout.Width(190)))
+        {
+            // double-guard in case of race
+            if (!cookerOk)
+            {
+                EditorUtility.DisplayDialog(
+                    "Cooker Offline",
+                    $"The content cooking server appears {_cookerStatus.ToString().ToLowerInvariant()} ({_cookerNote}).\nPlease try again later.",
+                    "OK");
+                return;
+            }
 
-                                    // 🧩 Validation: must have main screenshot (1920x1080)
-                                    if (p.mainScreenshot == null)
-                                    {
-                                        EditorUtility.DisplayDialog(
-                                            "Missing Screenshot",
-                                            $"This content pack '{p.name}' does not have a main screenshot.\n\n" +
-                                            "A 1920×1080 image is required before publishing to Mod.io.",
-                                            "OK"
-                                        );
-                                        Debug.LogWarning($"[ContentPackBuilder] Missing screenshot for '{p.name}'.");
-                                        return;
-                                    }
+            if (!allValid)
+            {
+                EditorUtility.DisplayDialog(
+                    "Fix Validation Before Publishing",
+                    $"This pack has issues:\nErrors: {errCount}\nWarnings: {warnCount}\n\nAll items must be ✓ Valid to publish.",
+                    "OK");
+                return;
+            }
 
-                                    string path = AssetDatabase.GetAssetPath(p.mainScreenshot);
-                                    var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
-                                    if (tex == null || tex.width != 1920 || tex.height != 1080)
-                                    {
-                                        EditorUtility.DisplayDialog(
-                                            "Invalid Screenshot Size",
-                                            $"Screenshot for '{p.name}' must be exactly 1920×1080.\n\n" +
-                                            $"Current size: {(tex != null ? $"{tex.width}×{tex.height}" : "Unknown")}",
-                                            "OK"
-                                        );
-                                        Debug.LogWarning(
-                                            $"[ContentPackBuilder] Invalid screenshot size for '{p.name}'.");
-                                        return;
-                                    }
+            // 🧩 Existing preflight checks you already have:
+            if (p._items == null || p._items.Count == 0)
+            {
+                EditorUtility.DisplayDialog("Empty Pack",
+                    $"This content pack '{p.name}' is empty.\n\nAdd content before publishing to Mod.io.",
+                    "OK");
+                return;
+            }
 
-                                    // 🧠 Confirmation popup
-                                    bool confirm = EditorUtility.DisplayDialog(
-                                        "Confirm Mod.io Publish",
-                                        $"Are you sure you want to publish this pack to {currentGame} Mod.io?\n\n" +
-                                        "This will attach your Mod.io user token to the pack definition.",
-                                        "Yes, Publish",
-                                        "Cancel"
-                                    );
+            if (string.IsNullOrWhiteSpace(p.summary))
+            {
+                EditorUtility.DisplayDialog("Missing Summary",
+                    $"This content pack '{p.name}' does not have a summary.\n\nA summary is required before publishing.",
+                    "OK");
+                return;
+            }
 
-                                    if (confirm)
-                                    {
-                                        // 1) Persist token on the pack (as you already did)
-                                        string token = ContentTools.ModIo.ModIoAuth.CurrentToken;
-                                        Undo.RecordObject(p, "Set Mod.io User Token");
-                                        p.modioUserToken = token;
-                                        p.gameName = currentGame;
-                                        EditorUtility.SetDirty(p);
-                                        AssetDatabase.SaveAssets();
+            if (p.mainScreenshot == null)
+            {
+                EditorUtility.DisplayDialog("Missing Screenshot",
+                    $"This content pack '{p.name}' does not have a main screenshot.\n\nA 1920×1080 image is required.",
+                    "OK");
+                return;
+            }
 
-                                        // 2) Build + upload
-                                        try
-                                        {
-                                            PublishToModioAsync(p, currentGame);
-                                        }
-                                        catch (TaskCanceledException tce)
-                                        {
-                                            EditorUtility.ClearProgressBar();
-                                            Debug.LogError($"[ContentPackBuilder] Upload timed out or was canceled. " +
-                                                           $"HttpClient.Timeout may be too low. Details: {tce}");
-                                            EditorUtility.DisplayDialog("Publish Failed",
-                                                "Upload timed out (TaskCanceled). Try again after increasing HttpClient.Timeout.", "OK");
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            EditorUtility.ClearProgressBar();
-                                            Debug.LogError($"[ContentPackBuilder] Publish failed: {ex}");
-                                            EditorUtility.DisplayDialog("Publish Failed", ex.Message, "OK");
-                                        }
-                                    }
+            string path = AssetDatabase.GetAssetPath(p.mainScreenshot);
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (tex == null || tex.width != 1920 || tex.height != 1080)
+            {
+                EditorUtility.DisplayDialog("Invalid Screenshot Size",
+                    $"Screenshot must be exactly 1920×1080.\nCurrent: {(tex != null ? $"{tex.width}×{tex.height}" : "Unknown")}",
+                    "OK");
+                return;
+            }
 
-                                    else
-                                    {
-                                        Debug.Log(
-                                            $"[ContentPackBuilder] Publish to Mod.io for '{p.name}' cancelled by user.");
-                                    }
-                                }
+            // 🧠 Confirmation popup
+            bool confirm = EditorUtility.DisplayDialog(
+                "Confirm Mod.io Publish",
+                $"Are you sure you want to publish this pack to {currentGame} Mod.io?\n\nThis will attach your Mod.io user token to the pack definition.",
+                "Yes, Publish", "Cancel");
 
-                            }
-                            else
-                            {
-                                GUILayout.Label("🔒 Not authorized with Mod.io", GUILayout.Width(190));
-                            }
+            if (!confirm) return;
+
+            // Persist token + publish (your existing flow)
+            string token = ContentTools.ModIo.ModIoAuth.CurrentToken;
+            Undo.RecordObject(p, "Set Mod.io User Token");
+            p.modioUserToken = token;
+            p.gameName = currentGame;
+            EditorUtility.SetDirty(p);
+            AssetDatabase.SaveAssets();
+
+            try
+            {
+                PublishToModioAsync(p, currentGame);
+            }
+            catch (TaskCanceledException tce)
+            {
+                EditorUtility.ClearProgressBar();
+                Debug.LogError($"[ContentPackBuilder] Upload timed out or was canceled. Details: {tce}");
+                EditorUtility.DisplayDialog("Publish Failed",
+                    "Upload timed out (TaskCanceled). Try again after increasing HttpClient.Timeout.", "OK");
+            }
+            catch (Exception ex)
+            {
+                EditorUtility.ClearProgressBar();
+                Debug.LogError($"[ContentPackBuilder] Publish failed: {ex}");
+                EditorUtility.DisplayDialog("Publish Failed", ex.Message, "OK");
+            }
+        }
+    }
+
+    // Optional: small hint if disabled
+    //if (!cookerOk)
+    //    EditorGUILayout.HelpBox("Cooker is not connected.", MessageType.Info);
+    //else if (!allValid)
+    //    EditorGUILayout.HelpBox($"Fix validation first (Errors: {errCount}, Warnings: {warnCount}).", MessageType.Error);
+}
+else
+{
+    GUILayout.Label("🔒 Not authorized with Mod.io", GUILayout.Width(190));
+}
+
 
 
 
@@ -1574,54 +1602,62 @@ namespace ContentTools.Editor
         
 
 // Content that reports progress while HttpClient streams it
-private sealed class ProgressStreamContent : HttpContent
-{
-    private readonly Stream _source;
-    private readonly int _bufferSize;
-    private readonly IProgress<float> _progress; // 0..1
-    private readonly long _contentLength;
-    private readonly int _minMsBetweenReports;
-    
-    public ProgressStreamContent(Stream source, int bufferSize, IProgress<float> progress, int minMsBetweenReports = 150)
-    {
-        _source = source ?? throw new ArgumentNullException(nameof(source));
-        _bufferSize = Mathf.Max(8 * 1024, bufferSize);
-        _progress = progress;
-        _minMsBetweenReports = minMsBetweenReports;
-        _contentLength = source.CanSeek ? source.Length : -1;
-        if (_contentLength >= 0) Headers.ContentLength = _contentLength;
-        Headers.Add("x-ms-blob-type", "BlockBlob"); // Azure Blob requirement for simple PUT
-    }
-
-    protected override async Task SerializeToStreamAsync(Stream target, TransportContext ctx)
-    {
-        var buffer = new byte[_bufferSize];
-        long total = 0; int read;
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-
-        while ((read = await _source.ReadAsync(buffer, 0, buffer.Length)) > 0)
+        private sealed class ProgressStreamContent : HttpContent
         {
-            await target.WriteAsync(buffer, 0, read);
-            total += read;
+            private readonly Stream _source;
+            private readonly int _bufferSize;
+            private readonly IProgress<float> _progress; // 0..1
+            private readonly long _contentLength;
+            private readonly int _minMsBetweenReports;
 
-            if (_contentLength > 0 && sw.ElapsedMilliseconds >= _minMsBetweenReports)
+            public ProgressStreamContent(Stream source, int bufferSize, IProgress<float> progress,
+                int minMsBetweenReports = 150)
             {
-                _progress?.Report((float)total / _contentLength);
-                sw.Restart();
+                _source = source ?? throw new ArgumentNullException(nameof(source));
+                _bufferSize = Mathf.Max(8 * 1024, bufferSize);
+                _progress = progress;
+                _minMsBetweenReports = minMsBetweenReports;
+                _contentLength = source.CanSeek ? source.Length : -1;
+                if (_contentLength >= 0) Headers.ContentLength = _contentLength;
+                Headers.Add("x-ms-blob-type", "BlockBlob"); // Azure Blob requirement for simple PUT
+            }
+
+            protected override async Task SerializeToStreamAsync(Stream target, TransportContext ctx)
+            {
+                var buffer = new byte[_bufferSize];
+                long total = 0;
+                int read;
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+
+                while ((read = await _source.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                {
+                    await target.WriteAsync(buffer, 0, read);
+                    total += read;
+
+                    if (_contentLength > 0 && sw.ElapsedMilliseconds >= _minMsBetweenReports)
+                    {
+                        _progress?.Report((float)total / _contentLength);
+                        sw.Restart();
+                    }
+                }
+
+                _progress?.Report(1f);
+            }
+
+            protected override bool TryComputeLength(out long length)
+            {
+                if (_contentLength >= 0)
+                {
+                    length = _contentLength;
+                    return true;
+                }
+
+                length = 0;
+                return false;
             }
         }
-        _progress?.Report(1f);
-    }
 
-    protected override bool TryComputeLength(out long length)
-    {
-        if (_contentLength >= 0) { length = _contentLength; return true; }
-        length = 0;
-        return false;
-    }
-}
-
-private static async Task UploadFileToSasAsync(string filePath, string uploadUrl, IProgress<float> progress)
+        private static async Task UploadFileToSasAsync(string filePath, string uploadUrl, IProgress<float> progress)
 {
     // Optional: per-host limit bump that actually works on Mono
     var sp = System.Net.ServicePointManager.FindServicePoint(new Uri(uploadUrl));
@@ -2046,6 +2082,16 @@ private bool _modioFoldout = true;
             Repaint();
         }
 
+        // Returns true only if there are NO errors and NO warnings across all items in the pack.
+        private static (bool allValid, int errors, int warnings) ComputePackValidation(
+            ContentPackDefinition pack, ContentValidationRules rules)
+        {
+            var issues = ValidatePack(pack, rules);
+            int err = issues.Count(i => i.severity == ContentPackValidator.Severity.Error);
+            int warn = issues.Count(i => i.severity == ContentPackValidator.Severity.Warning);
+            return (err == 0 && warn == 0, err, warn);
+        }
+        
         private static async Task<(bool ok, string error)> ValidateModioTokenAsync()
         {
             // Pull what your UI already stores
@@ -2074,6 +2120,46 @@ private bool _modioFoldout = true;
             catch (Exception ex)
             {
                 return (false, $"Token check failed: {ex.Message}");
+            }
+        }
+
+
+
+        private static async Task<(bool online, string note)> IsCookerOnlineAsync(int freshnessSeconds = 30)
+        {
+            try
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Get, COOKER_HEARTBEAT_URL);
+                using var res = await SharedHttp.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                if (!res.IsSuccessStatusCode)
+                    return (false, $"HTTP {(int)res.StatusCode}");
+
+                var body = await res.Content.ReadAsStringAsync();
+                // minimal parse; replace with a JSON lib if you prefer
+                bool online = body.Contains("\"online\":true");
+                var tsIdx = body.IndexOf("\"utc\":", StringComparison.OrdinalIgnoreCase);
+                DateTime utc = DateTime.MinValue;
+                if (tsIdx >= 0)
+                {
+                    int q1 = body.IndexOf('"', tsIdx + 6);
+                    int q2 = (q1 >= 0) ? body.IndexOf('"', q1 + 1) : -1;
+                    if (q1 >= 0 && q2 > q1)
+                    {
+                        var iso = body.Substring(q1 + 1, q2 - q1 - 1);
+                        DateTime.TryParse(iso, null, System.Globalization.DateTimeStyles.AdjustToUniversal, out utc);
+                    }
+                }
+
+                var age = (DateTime.UtcNow - utc).TotalSeconds;
+                if (!online) return (false, "reported offline");
+                if (utc == DateTime.MinValue) return (false, "no timestamp");
+                if (age > freshnessSeconds) return (false, $"stale ({(int)age}s)");
+
+                return (true, $"ok ({(int)age}s)");
+            }
+            catch (Exception ex)
+            {
+                return (false, ex.Message);
             }
         }
 
@@ -2793,8 +2879,81 @@ private static string SanitizeFileName(string raw)
             }
         }
 
-        
-        private Texture2D TryLoadSteamLibraryImage(long appId, int maxHeight = 64)
+private void MaybePollCookerStatus()
+{
+    if (_statusInFlight) return;
+    if (EditorApplication.timeSinceStartup < _nextStatusPollAt) return;
+
+    _statusInFlight = true;
+    _ = PollCookerStatusAsync(); // fire-and-forget; will Repaint() on completion
+}
+
+private async System.Threading.Tasks.Task PollCookerStatusAsync()
+{
+    try
+    {
+        using (var req = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, COOKER_HEARTBEAT_URL))
+        using (var res = await SharedHttp.SendAsync(req, System.Net.Http.HttpCompletionOption.ResponseHeadersRead))
+        {
+            if (!res.IsSuccessStatusCode)
+            {
+                _cookerStatus = CookerStatus.Error;
+                _cookerNote = $"HTTP {(int)res.StatusCode}";
+            }
+            else
+            {
+                var body = await res.Content.ReadAsStringAsync();
+                bool online = body.Contains("\"online\":true");
+                // crude ISO8601 parse of "utc":"..."
+                DateTime utc = DateTime.MinValue;
+                int i = body.IndexOf("\"utc\":", StringComparison.OrdinalIgnoreCase);
+                if (i >= 0)
+                {
+                    int q1 = body.IndexOf('"', i + 6);
+                    int q2 = (q1 >= 0) ? body.IndexOf('"', q1 + 1) : -1;
+                    if (q1 >= 0 && q2 > q1)
+                        DateTime.TryParse(body.Substring(q1 + 1, q2 - q1 - 1),
+                            null,
+                            System.Globalization.DateTimeStyles.AdjustToUniversal,
+                            out utc);
+                }
+
+                var ageSec = (utc == DateTime.MinValue)
+                    ? double.PositiveInfinity
+                    : (DateTime.UtcNow - utc).TotalSeconds;
+
+                if (!online)
+                {
+                    _cookerStatus = CookerStatus.Offline;
+                    _cookerNote = "offline";
+                }
+                else if (ageSec > HeartbeatFreshnessSeconds)
+                {
+                    _cookerStatus = CookerStatus.Stale;
+                    _cookerNote = $"not connected";
+                }
+                else
+                {
+                    _cookerStatus = CookerStatus.Online;
+                    _cookerNote = $"ok ({(int)ageSec}s)";
+                }
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        _cookerStatus = CookerStatus.Error;
+        _cookerNote = ex.GetType().Name;
+    }
+    finally
+    {
+        _statusInFlight = false;
+        _nextStatusPollAt = EditorApplication.timeSinceStartup + 15.0; // poll every ~15s
+        EditorApplication.delayCall += Repaint; // refresh the UI safely on main thread
+    }
+}
+
+private Texture2D TryLoadSteamLibraryImage(long appId, int maxHeight = 64)
         {
             if (_steamCapsuleCache.TryGetValue(appId, out var cached) && cached != null)
                 return cached;

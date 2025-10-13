@@ -45,9 +45,9 @@ MonoBehaviour:
   m_overridePlayerVersion: newpack3s
   m_GroupAssets:
   - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
-  - {fileID: 11400000, guid: 4a38ca0b5a3855a48ab2801328f0b493, type: 2}
-  - {fileID: 11400000, guid: 06107fc6c27d3eb4d84a6d17db34ccdd, type: 2}
   - {fileID: 11400000, guid: 5a36b0bd3bb8a4340b5a2331e808a8f8, type: 2}
+  - {fileID: 11400000, guid: 06107fc6c27d3eb4d84a6d17db34ccdd, type: 2}
+  - {fileID: 11400000, guid: 4a38ca0b5a3855a48ab2801328f0b493, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
     m_CleanupStreamingAssetsAfterBuilds: 1
