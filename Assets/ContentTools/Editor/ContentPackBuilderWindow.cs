@@ -1851,7 +1851,7 @@ private bool _modioFoldout = true;
 
                 try
                 {
-                    if (p._icons == null) p._icons = new List<Texture2D>();
+                    p._icons = new List<Texture2D>();
                     bool changedIcons = false;
 
                     foreach (var go in (p._items ?? new List<GameObject>()).Where(x => x != null))
@@ -2437,9 +2437,10 @@ private bool _modioFoldout = true;
                 return;
             }
 
+            
             // 2) Load the generated textures and record them on the pack
             bool changed = false;
-            if (pack._icons == null) pack._icons = new List<Texture2D>();
+            pack._icons = new List<Texture2D>();
 
             foreach (var prefab in items)
             {
