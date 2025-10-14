@@ -67,19 +67,68 @@ namespace ContentTools.Editor
                 issues.Add(new Issue { severity = Severity.Error, message = $"'{go.name}' is not a prefab asset.", context = go });
                 return issues;
             }
+            
+// --- Name format validation ---
+            string name = go.name;
 
-            // Split by underscores; require at least 4 tokens
-            var parts = go.name.Split('_');
-            if (parts.Length < 4)
+// Must have exactly 5 tags (4 underscores)
+            var parts = name.Split('_');
+            if (parts.Length != 5)
             {
-                issues.Add(new Issue { severity = Severity.Error, message = $"{go.name}: name must be [SuperType]_[Type]_[Brand]_[Color].", context = go });
+                issues.Add(new Issue
+                {
+                    severity = Severity.Error,
+                    message = $"{name}: must have exactly 5 tags separated by 4 underscores (expected SuperType_Type_Brand_Name_Color, found {parts.Length - 1} underscores).",
+                    context = go
+                });
                 return issues;
             }
 
+// No double underscores
+            if (name.Contains("__"))
+            {
+                issues.Add(new Issue
+                {
+                    severity = Severity.Error,
+                    message = $"{name}: contains double underscores '__', which are not allowed.",
+                    context = go
+                });
+                return issues;
+            }
+
+// Validate that each part is alphanumeric and non-empty
+            for (int i = 0; i < parts.Length; i++)
+            {
+                string part = parts[i];
+                if (string.IsNullOrEmpty(part))
+                {
+                    issues.Add(new Issue
+                    {
+                        severity = Severity.Error,
+                        message = $"{name}: tag {i + 1} is empty.",
+                        context = go
+                    });
+                    return issues;
+                }
+                if (!Regex.IsMatch(part, @"^[A-Za-z0-9]+$"))
+                {
+                    issues.Add(new Issue
+                    {
+                        severity = Severity.Error,
+                        message = $"{name}: tag '{part}' contains invalid characters (letters and digits only).",
+                        context = go
+                    });
+                    return issues;
+                }
+            }
+
+// Assign tokens explicitly
             string superType = parts[0];
             string type      = parts[1];
-            string color     = parts[^1];
-            string brand     = string.Join("_", parts.Skip(2).Take(parts.Length - 3)); // not validated; usable for anchors
+            string brand     = parts[2];
+            string itemName  = parts[3];
+            string color     = parts[4];
+
 
 // ... inside ValidateItem(GameObject go, ContentValidationRules rules, List<Issue> buffer = null)
 
