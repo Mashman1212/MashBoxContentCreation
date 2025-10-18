@@ -97,6 +97,7 @@ namespace ContentTools.Editor
             }
 
 // Validate that each part is alphanumeric and non-empty
+// Validate that each part is alphanumeric and non-empty
             for (int i = 0; i < parts.Length; i++)
             {
                 string part = parts[i];
@@ -110,17 +111,24 @@ namespace ContentTools.Editor
                     });
                     return issues;
                 }
-                if (!Regex.IsMatch(part, @"^[A-Za-z0-9]+$"))
+
+                // Allow spaces and numbers in Brand (index 2) and Name (index 3)
+                string pattern = (i == 2 || i == 3)
+                    ? @"^[A-Za-z0-9 ]+$"   // letters, digits, and spaces
+                    : @"^[A-Za-z0-9]+$";   // letters and digits only
+
+                if (!Regex.IsMatch(part, pattern))
                 {
                     issues.Add(new Issue
                     {
                         severity = Severity.Error,
-                        message = $"{name}: tag '{part}' contains invalid characters (letters and digits only).",
+                        message = $"{name}: tag '{part}' contains invalid characters (letters, digits{(i == 2 || i == 3 ? ", spaces" : "")} only).",
                         context = go
                     });
                     return issues;
                 }
             }
+
 
 // Assign tokens explicitly
             string superType = parts[0];
