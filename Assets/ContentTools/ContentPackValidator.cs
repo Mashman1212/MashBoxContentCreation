@@ -113,9 +113,7 @@ namespace ContentTools.Editor
                 }
 
                 // Allow spaces and numbers in Brand (index 2) and Name (index 3)
-                string pattern = (i == 2 || i == 3)
-                    ? @"^[A-Za-z0-9 ]+$"   // letters, digits, and spaces
-                    : @"^[A-Za-z0-9]+$";   // letters and digits only
+                string pattern = @"^[A-Za-z0-9 ]+$";   // letters, digits, and spaces
 
                 if (!Regex.IsMatch(part, pattern))
                 {
