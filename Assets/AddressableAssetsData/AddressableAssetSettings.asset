@@ -35,21 +35,21 @@ MonoBehaviour:
   m_CheckForContentUpdateRestrictionsOption: 0
   m_MonoScriptBundleCustomNaming: 
   m_RemoteCatalogBuildPath:
-    m_Id: 7b3c7f0237264ac44aa2e2e29ea2f6f8
+    m_Id: 85b9b3ba5cabe384287b3b3e3a360c9e
   m_RemoteCatalogLoadPath:
-    m_Id: e5cba061b078c6f499d90c070cb00973
+    m_Id: 59eae6a16afe3b14389b476182c7e4d3
   m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
   m_BuildAddressablesWithPlayerBuild: 0
-  m_overridePlayerVersion: newpack3s
+  m_overridePlayerVersion: NewContentPack
   m_GroupAssets:
   - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
-  - {fileID: 11400000, guid: f383697b95ac97648b75baef2f227f75, type: 2}
   - {fileID: 11400000, guid: 4a38ca0b5a3855a48ab2801328f0b493, type: 2}
+  - {fileID: 11400000, guid: f383697b95ac97648b75baef2f227f75, type: 2}
+  - {fileID: 11400000, guid: 06107fc6c27d3eb4d84a6d17db34ccdd, type: 2}
   - {fileID: 11400000, guid: 5a36b0bd3bb8a4340b5a2331e808a8f8, type: 2}
   - {fileID: 11400000, guid: cd005a446f94a24409f5f43b7b4d7198, type: 2}
-  - {fileID: 11400000, guid: 06107fc6c27d3eb4d84a6d17db34ccdd, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
     m_CleanupStreamingAssetsAfterBuilds: 1
@@ -213,6 +213,7 @@ MonoBehaviour:
     - Zebra
     - Unique
     - Whites
+    - Test
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: 80a64dd5444db09479054d5399c86e50, type: 2}
