@@ -66,7 +66,7 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 8d8e546cff74cad4d97f40cd51274621,
         type: 3}
       propertyPath: m_Name
-      value: Scooter_Deck_Vanilla_Bean_Whites
+      value: Scooter_Deck_Vanilla_Bean_White
       objectReference: {fileID: 0}
     - target: {fileID: 4966409665695033816, guid: 8d8e546cff74cad4d97f40cd51274621,
         type: 3}
