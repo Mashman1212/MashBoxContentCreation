@@ -25,7 +25,7 @@ namespace ContentTools
 
 
 
-        [ContextMenu("Add Assets To Group")]
+        [ContextMenu("Sync")]
         public void Sync()
         {
             SyncContent(_type.ToString().ToLower());
