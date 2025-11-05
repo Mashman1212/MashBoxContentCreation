@@ -13,8 +13,10 @@ MonoBehaviour:
   m_Name: ContentValidationRules
   m_EditorClassIdentifier: 
   SuperTypes:
+  - Human
   - Scooter
   - BMX
+  - MTB
   Colors:
   - Black
   - Blue
@@ -36,6 +38,14 @@ MonoBehaviour:
   - Oil Slick
   - Vanilla_Bean
   AllowedPairs:
+  - SuperType: Human
+    Types:
+    - Shirt
+    - Pants
+    - Socks
+    - Shoes
+    - Hat
+    - Gloves
   - SuperType: Scooter
     Types:
     - Deck
@@ -63,6 +73,38 @@ MonoBehaviour:
     - Rear Hub
     - Grip
     - Hub Guard
+    - Mag
+    - Nipples
+    - Pedal
+    - Peg
+    - Rim
+    - Seat
+    - Seat Clamp
+    - Seat Post
+    - Spokes
+    - Sprocket
+    - Stem
+    - Stem Bolt
+    - Stem Cap
+    - Tire
+    - Valve Cap
+  - SuperType: MTB
+    Types:
+    - Frame
+    - Bars
+    - Bar End
+    - Forks
+    - Headset
+    - BB
+    - Chain
+    - CrankArm
+    - Front Hub
+    - Brake Lever
+    - Brake Rotor
+    - Brake Caliper
+    - Cassette
+    - Rear Hub
+    - Grip
     - Mag
     - Nipples
     - Pedal
@@ -165,6 +207,11 @@ MonoBehaviour:
     RequiredPatterns: []
   - AppliesToSuperType: BMX
     AppliesToType: Bar End
+    AppliesToBrand: 
+    RequiredChildren: []
+    RequiredPatterns: []
+  - AppliesToSuperType: MTB
+    AppliesToType: Frame
     AppliesToBrand: 
     RequiredChildren: []
     RequiredPatterns: []

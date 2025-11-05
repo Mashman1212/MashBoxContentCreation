@@ -35,21 +35,21 @@ MonoBehaviour:
   m_CheckForContentUpdateRestrictionsOption: 0
   m_MonoScriptBundleCustomNaming: 
   m_RemoteCatalogBuildPath:
-    m_Id: 85b9b3ba5cabe384287b3b3e3a360c9e
+    m_Id: fed9de477b7714748881cfbe387bd71b
   m_RemoteCatalogLoadPath:
-    m_Id: 59eae6a16afe3b14389b476182c7e4d3
+    m_Id: 72d9d6f0dfddb4949bc9985724139253
   m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
   m_BuildAddressablesWithPlayerBuild: 0
-  m_overridePlayerVersion: NewContentPack
+  m_overridePlayerVersion: ClothingTest
   m_GroupAssets:
   - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
-  - {fileID: 11400000, guid: 4a38ca0b5a3855a48ab2801328f0b493, type: 2}
-  - {fileID: 11400000, guid: f383697b95ac97648b75baef2f227f75, type: 2}
-  - {fileID: 11400000, guid: 06107fc6c27d3eb4d84a6d17db34ccdd, type: 2}
+  - {fileID: 11400000, guid: 789eb266c61429345af9cd8906751dad, type: 2}
+  - {fileID: 0}
+  - {fileID: 11400000, guid: b5f2dc17d6a4afe41a65ff6246bcffe2, type: 2}
+  - {fileID: 11400000, guid: 23743e56ac74f734bb87f285c3529521, type: 2}
   - {fileID: 11400000, guid: 5a36b0bd3bb8a4340b5a2331e808a8f8, type: 2}
-  - {fileID: 11400000, guid: cd005a446f94a24409f5f43b7b4d7198, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
     m_CleanupStreamingAssetsAfterBuilds: 1
@@ -81,6 +81,8 @@ MonoBehaviour:
         m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
       - m_Id: 687ed2394e5497a439119ea6312f977c
         m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/MyContentPack'
+      - m_Id: 72d9d6f0dfddb4949bc9985724139253
+        m_Value: file:///D:/BMXStreets_CC/ServerData/StandaloneWindows64/ClothingTest
       - m_Id: 7b3c7f0237264ac44aa2e2e29ea2f6f8
         m_Value: D:/SteamLibrary/steamapps/common/ScootX/ScootX_Data/StreamingAssets/Addressables/Customization/newpack3s
       - m_Id: 85b9b3ba5cabe384287b3b3e3a360c9e
@@ -95,6 +97,8 @@ MonoBehaviour:
         m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
       - m_Id: fb5b59db9642cf74c8b7075494ec299c
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
+      - m_Id: fed9de477b7714748881cfbe387bd71b
+        m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/ClothingTest
     - m_InheritedParent: 
       m_Id: 94efe36cdca718b4db60ac91f454d830
       m_ProfileName: MG
@@ -119,6 +123,8 @@ MonoBehaviour:
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
       - m_Id: 687ed2394e5497a439119ea6312f977c
         m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/MyContentPack'
+      - m_Id: 72d9d6f0dfddb4949bc9985724139253
+        m_Value: file:///D:/BMXStreets_CC/ServerData/StandaloneWindows64/ClothingTest
       - m_Id: 7b3c7f0237264ac44aa2e2e29ea2f6f8
         m_Value: D:/SteamLibrary/steamapps/common/ScootX/ScootX_Data/StreamingAssets/Addressables/Customization/newpack3s
       - m_Id: 85b9b3ba5cabe384287b3b3e3a360c9e
@@ -133,6 +139,8 @@ MonoBehaviour:
         m_Value: Content/[BuildTarget]
       - m_Id: fb5b59db9642cf74c8b7075494ec299c
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
+      - m_Id: fed9de477b7714748881cfbe387bd71b
+        m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/ClothingTest
     m_ProfileEntryNames:
     - m_Id: 09d982614f436cd409abb0ae6e65e3b3
       m_Name: Remote.BuildPath
@@ -164,6 +172,9 @@ MonoBehaviour:
     - m_Id: 687ed2394e5497a439119ea6312f977c
       m_Name: Pack_MyContentPack_LoadPath
       m_InlineUsage: 0
+    - m_Id: 72d9d6f0dfddb4949bc9985724139253
+      m_Name: Pack_ClothingTest_LoadPath
+      m_InlineUsage: 0
     - m_Id: 7b3c7f0237264ac44aa2e2e29ea2f6f8
       m_Name: Pack_newpack3s_BuildPath
       m_InlineUsage: 0
@@ -184,6 +195,9 @@ MonoBehaviour:
       m_InlineUsage: 0
     - m_Id: fb5b59db9642cf74c8b7075494ec299c
       m_Name: Customization_LoadPath
+      m_InlineUsage: 0
+    - m_Id: fed9de477b7714748881cfbe387bd71b
+      m_Name: Pack_ClothingTest_BuildPath
       m_InlineUsage: 0
     m_ProfileVersion: 1
   m_LabelTable:
@@ -214,6 +228,41 @@ MonoBehaviour:
     - Unique
     - Whites
     - Test
+    - MTB
+    - Valence
+    - Atom
+    - Blue
+    - Green
+    - Red
+    - Angie
+    - Pants
+    - Bruno
+    - Chase
+    - Corey
+    - Dak
+    - Dan
+    - Daryien
+    - Devon
+    - Matt
+    - Max
+    - Nina
+    - Ryan
+    - Sean
+    - Human
+    - Marino
+    - Hoffman
+    - Hawk
+    - Walsh
+    - Roche
+    - Lacey
+    - Contest
+    - Winner
+    - Smille
+    - Dev
+    - Guy
+    - Burrito
+    - Williams
+    - Richany
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: 80a64dd5444db09479054d5399c86e50, type: 2}

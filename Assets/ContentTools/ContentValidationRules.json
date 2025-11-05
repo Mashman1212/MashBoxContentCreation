@@ -1,13 +1,19 @@
 {
     "SuperTypes": [
+        "Human",
         "Scooter",
-        "BMX"
+        "BMX",
+        "MTB"
     ],
     "Colors": [
         "Black","Blue","Red","Green","Purple","Raw","Chrome","Teal","Tan",
         "Orange","Yellow","Pink","White","Grey","Brown","Unique","Gold","Oil Slick","Vanilla_Bean"
     ],
     "AllowedPairs": [
+        {
+            "SuperType": "Human",
+            "Types": ["Shirt","Pants","Socks","Shoes","Hat","Gloves"]
+        },
         {
             "SuperType": "Scooter",
             "Types": ["Deck","Bars","Clamp","Forks","Headset","Griptape","Wheel","Peg","Urethane","Grip","Bar End"]
@@ -17,6 +23,14 @@
             "Types": [
                 "Frame","Bars","Bar End","Forks","Headset","BB","Chain","CrankArm","Front Hub",
                 "Rear Hub","Grip","Hub Guard","Mag","Nipples","Pedal","Peg","Rim","Seat","Seat Clamp",
+                "Seat Post","Spokes","Sprocket","Stem","Stem Bolt","Stem Cap","Tire","Valve Cap"
+            ]
+        },
+        {
+            "SuperType": "MTB",
+            "Types": [
+                "Frame","Bars","Bar End","Forks","Headset","BB","Chain","CrankArm","Front Hub","Brake Lever","Brake Rotor","Brake Caliper","Cassette",
+                "Rear Hub","Grip","Mag","Nipples","Pedal","Peg","Rim","Seat","Seat Clamp",
                 "Seat Post","Spokes","Sprocket","Stem","Stem Bolt","Stem Cap","Tire","Valve Cap"
             ]
         }
@@ -143,6 +157,15 @@
         {
             "AppliesToSuperType": "BMX",
             "AppliesToType": "Bar End",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+            ],
+            "RequiredPatterns": []
+        },
+
+        {
+            "AppliesToSuperType": "MTB",
+            "AppliesToType": "Frame",
             "AppliesToBrand": "",
             "RequiredChildren": [
             ],

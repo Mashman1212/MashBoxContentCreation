@@ -178,7 +178,8 @@ namespace ContentTools.Editor
             _packsFolder = FORCED_PACKS_FOLDER;
             EnsureFolderExists(_packsFolder);
 
-            AutoLoadRulesIfNeeded();
+            //AutoLoadRulesIfNeeded();
+            ReloadRulesAlways();
             RefreshPacks();
 
             CleanAddressableData();
@@ -257,6 +258,29 @@ namespace ContentTools.Editor
                 {
                     if (!go) continue;
                     _itemIssues[go] = ContentPackValidator.ValidateItem(go, _rules);
+                }
+            }
+        }
+        private void ReloadRulesAlways()
+        {
+            var guids = AssetDatabase.FindAssets("t:ContentValidationRules");
+            if (guids != null && guids.Length > 0)
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guids[0]);
+                var loaded = AssetDatabase.LoadAssetAtPath<ContentValidationRules>(path);
+                if (loaded != null)
+                {
+                    _rules = loaded;
+                    Debug.Log($"[ContentPackBuilder] Reloaded validation rules: {path}");
+                }
+            }
+            else
+            {
+                _rules = null;
+                if (!_warnedNoRules)
+                {
+                    _warnedNoRules = true;
+                    Debug.LogWarning("No ContentValidationRules asset found. Create one via Tools → MashBox → Create Prefilled Validation Rules.");
                 }
             }
         }
@@ -425,6 +449,42 @@ namespace ContentTools.Editor
 
                 GUILayout.Space(4);
 
+                
+                // --- Custom Folder Target Option ---
+                GUILayout.Space(10);
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                {
+                    EditorGUILayout.LabelField("Custom Build Target", EditorStyles.boldLabel);
+                    EditorGUILayout.LabelField("Use this to set any folder as the build output target (not tied to a specific game).");
+
+                    if (GUILayout.Button("Set Custom Target Folder...", GUILayout.Height(24)))
+                    {
+                        string path = EditorUtility.OpenFolderPanel("Select Custom Build Output Folder", _buildLocation, "");
+                        if (!string.IsNullOrEmpty(path))
+                        {
+                            _buildLocation = path.Replace("\\", "/");
+                            _lastChosenAppId = 0; // mark as custom
+                            EditorPrefs.SetString(PREF_KEY_BUILD_LOCATION, _buildLocation);
+                            EditorPrefs.SetString(PREF_KEY_LAST_APP, _lastChosenAppId.ToString());
+                            EditorPrefs.SetString("ModIo.CurrentGame", "Custom Folder");
+                            _currentGameName = "Custom Folder";
+                            Debug.Log($"[ContentPackBuilder] Custom build target set to: {_buildLocation}");
+                            Repaint();
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(_buildLocation))
+                    {
+                        EditorGUILayout.LabelField("Active Target:", _buildLocation, EditorStyles.miniLabel);
+
+                        if (GUILayout.Button("Open Folder", GUILayout.Width(110)))
+                        {
+                            OpenBuildOutputFolder(_buildLocation);
+                        }
+                    }
+                }
+
+                
                 foreach (var g in ALLOWED_GAMES)
                 {
                     // Breakpoints you can tune
