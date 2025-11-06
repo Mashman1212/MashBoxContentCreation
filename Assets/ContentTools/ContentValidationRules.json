@@ -170,7 +170,19 @@
             "RequiredChildren": [
             ],
             "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "MTB",
+            "AppliesToType": "Bars",
+            "AppliesToBrand": "",
+            "RequiredChildren": [
+                "Mesh",
+                "Left_BarEnd_Anchor",
+                "Left_Grip_Anchor",
+                "Right_BarEnd_Anchor",
+                "Right_Grip_Anchor"
+            ],
+            "RequiredPatterns": []
         }
-        
     ]
 }
