@@ -102,6 +102,8 @@ MonoBehaviour:
     - Brake Lever
     - Brake Rotor
     - Brake Caliper
+    - Shifter
+    - Derailleur
     - Cassette
     - Rear Hub
     - Grip
@@ -224,4 +226,29 @@ MonoBehaviour:
     - Left_Grip_Anchor
     - Right_BarEnd_Anchor
     - Right_Grip_Anchor
+    RequiredPatterns: []
+  - AppliesToSuperType: MTB
+    AppliesToType: Brake Rotor
+    AppliesToBrand: 
+    RequiredChildren: []
+    RequiredPatterns: []
+  - AppliesToSuperType: MTB
+    AppliesToType: Brake Caliper
+    AppliesToBrand: 
+    RequiredChildren: []
+    RequiredPatterns: []
+  - AppliesToSuperType: MTB
+    AppliesToType: Brake Lever
+    AppliesToBrand: 
+    RequiredChildren: []
+    RequiredPatterns: []
+  - AppliesToSuperType: MTB
+    AppliesToType: Shifter
+    AppliesToBrand: 
+    RequiredChildren: []
+    RequiredPatterns: []
+  - AppliesToSuperType: MTB
+    AppliesToType: Derailleur
+    AppliesToBrand: 
+    RequiredChildren: []
     RequiredPatterns: []

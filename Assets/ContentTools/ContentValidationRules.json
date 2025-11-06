@@ -29,7 +29,7 @@
         {
             "SuperType": "MTB",
             "Types": [
-                "Frame","Bars","Bar End","Forks","Headset","BB","Chain","CrankArm","Front Hub","Brake Lever","Brake Rotor","Brake Caliper","Cassette",
+                "Frame","Bars","Bar End","Forks","Headset","BB","Chain","CrankArm","Front Hub","Brake Lever","Brake Rotor","Brake Caliper","Shifter","Derailleur","Cassette",
                 "Rear Hub","Grip","Mag","Nipples","Pedal","Peg","Rim","Seat","Seat Clamp",
                 "Seat Post","Spokes","Sprocket","Stem","Stem Bolt","Stem Cap","Tire","Valve Cap"
             ]
@@ -182,6 +182,41 @@
                 "Right_BarEnd_Anchor",
                 "Right_Grip_Anchor"
             ],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "MTB",
+            "AppliesToType": "Brake Rotor",
+            "AppliesToBrand": "",
+            "RequiredChildren": [],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "MTB",
+            "AppliesToType": "Brake Caliper",
+            "AppliesToBrand": "",
+            "RequiredChildren": [],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "MTB",
+            "AppliesToType": "Brake Lever",
+            "AppliesToBrand": "",
+            "RequiredChildren": [],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "MTB",
+            "AppliesToType": "Shifter",
+            "AppliesToBrand": "",
+            "RequiredChildren": [],
+            "RequiredPatterns": []
+        },
+        {
+            "AppliesToSuperType": "MTB",
+            "AppliesToType": "Derailleur",
+            "AppliesToBrand": "",
+            "RequiredChildren": [],
             "RequiredPatterns": []
         }
     ]
