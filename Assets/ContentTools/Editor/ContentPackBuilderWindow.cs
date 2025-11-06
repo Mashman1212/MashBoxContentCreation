@@ -56,6 +56,12 @@ namespace ContentTools.Editor
                 SteamAppId = 3800340,
                 ModIoApiBase = "https://g-2835.modapi.io/v1"
             },
+            new AllowedGame
+            {
+                DisplayName = "Maple",
+                SteamAppId = 4151650,
+                ModIoApiBase = "mull"
+            },
         };
 
         private const string STREAMING_SUBPATH = "Addressables/Customization"; // under StreamingAssets

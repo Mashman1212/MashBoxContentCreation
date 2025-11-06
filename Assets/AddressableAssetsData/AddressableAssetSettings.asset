@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 9964a7f3248cfe242b246176ac83973f
   m_currentHash:
     serializedVersion: 2
-    Hash: 00000000000000000000000000000000
+    Hash: ab1754734731f834ed78ee6a77d5aa0c
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 0
@@ -44,11 +44,11 @@ MonoBehaviour:
   m_BuildAddressablesWithPlayerBuild: 0
   m_overridePlayerVersion: ClothingTest
   m_GroupAssets:
-  - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
-  - {fileID: 11400000, guid: 789eb266c61429345af9cd8906751dad, type: 2}
   - {fileID: 0}
-  - {fileID: 11400000, guid: b5f2dc17d6a4afe41a65ff6246bcffe2, type: 2}
+  - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
   - {fileID: 11400000, guid: 23743e56ac74f734bb87f285c3529521, type: 2}
+  - {fileID: 11400000, guid: 789eb266c61429345af9cd8906751dad, type: 2}
+  - {fileID: 11400000, guid: b5f2dc17d6a4afe41a65ff6246bcffe2, type: 2}
   - {fileID: 11400000, guid: 5a36b0bd3bb8a4340b5a2331e808a8f8, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
