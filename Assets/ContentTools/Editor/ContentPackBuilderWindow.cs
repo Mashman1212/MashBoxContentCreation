@@ -2319,7 +2319,7 @@ private bool _modioFoldout = true;
             _foldouts.Clear();
 
             // Only find packs inside the forced folder
-            string[] guids = AssetDatabase.FindAssets("t:ContentPackDefinition", new[] { FORCED_PACKS_FOLDER });
+            string[] guids = AssetDatabase.FindAssets("t:ContentPackDefinition");
             foreach (string guid in guids)
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
