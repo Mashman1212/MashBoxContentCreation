@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 9964a7f3248cfe242b246176ac83973f
   m_currentHash:
     serializedVersion: 2
-    Hash: e08aa406013e9b06d7147ccb1291dd5f
+    Hash: 5c945173422613371bb73bfb44140e6c
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 0
@@ -35,20 +35,18 @@ MonoBehaviour:
   m_CheckForContentUpdateRestrictionsOption: 0
   m_MonoScriptBundleCustomNaming: 
   m_RemoteCatalogBuildPath:
-    m_Id: fed9de477b7714748881cfbe387bd71b
+    m_Id: 1e5509e336543d1458adcf3726e447ab
   m_RemoteCatalogLoadPath:
-    m_Id: 72d9d6f0dfddb4949bc9985724139253
+    m_Id: 5c183db6469a951409ec4be0dc2cf880
   m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
   m_BuildAddressablesWithPlayerBuild: 0
-  m_overridePlayerVersion: ClothingTest
+  m_overridePlayerVersion: Shirts
   m_GroupAssets:
+  - {fileID: 11400000, guid: ba0f893308b1d2b4eafed19f9c952e31, type: 2}
   - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
-  - {fileID: 11400000, guid: 789eb266c61429345af9cd8906751dad, type: 2}
-  - {fileID: 11400000, guid: b5f2dc17d6a4afe41a65ff6246bcffe2, type: 2}
   - {fileID: 11400000, guid: 5a36b0bd3bb8a4340b5a2331e808a8f8, type: 2}
-  - {fileID: 11400000, guid: 23743e56ac74f734bb87f285c3529521, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
     m_CleanupStreamingAssetsAfterBuilds: 1
@@ -62,141 +60,64 @@ MonoBehaviour:
       m_Values:
       - m_Id: 09d982614f436cd409abb0ae6e65e3b3
         m_Value: ServerData/[BuildTarget]
-      - m_Id: 0d37e287349628d42a9e4a56ee0f0910
-        m_Value: file:///D:/MashBoxContentCreation/Assets/Content/MyContentPackB
-      - m_Id: 1e8a0b29d7a6f6a47994749745c3246d
-        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPack
+      - m_Id: 1e5509e336543d1458adcf3726e447ab
+        m_Value: D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 22c2b88bd9cf2ba4dabb6cc7abbd46fe
         m_Value: Content/[BuildTarget]
-      - m_Id: 2feabca73c951e14d9d36540ae9413c6
-        m_Value: file:///D:/MashBoxContentCreation/Assets/Content/MyContentPackA
-      - m_Id: 497060f53e35df4479691e7e1d9ba118
-        m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
-      - m_Id: 51118b00c7f9c9f47a9c3e876017c920
-        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPackB
-      - m_Id: 59eae6a16afe3b14389b476182c7e4d3
-        m_Value: file:///D:/MashBoxContentCreation/Assets/StreamingAssets/Addressables/Customization/NewContentPack
+      - m_Id: 5c183db6469a951409ec4be0dc2cf880
+        m_Value: file:///D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 654bc31bc64da90439c688e82cafa878
         m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
-      - m_Id: 687ed2394e5497a439119ea6312f977c
-        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/MyContentPack'
-      - m_Id: 72d9d6f0dfddb4949bc9985724139253
-        m_Value: file:///D:/BMXStreets_CC/ServerData/StandaloneWindows64/ClothingTest
-      - m_Id: 7b3c7f0237264ac44aa2e2e29ea2f6f8
-        m_Value: D:/SteamLibrary/steamapps/common/ScootX/ScootX_Data/StreamingAssets/Addressables/Customization/newpack3s
-      - m_Id: 85b9b3ba5cabe384287b3b3e3a360c9e
-        m_Value: D:/MashBoxContentCreation/Assets/StreamingAssets/Addressables/Customization/NewContentPack
       - m_Id: c3b1357132e9a5346a88cd86b42ef70e
         m_Value: http://[PrivateIpAddress]:[HostingServicePort]
-      - m_Id: d5fc01642e5187044baa634272fb55ec
-        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPackA
-      - m_Id: e5cba061b078c6f499d90c070cb00973
-        m_Value: file:///D:/SteamLibrary/steamapps/common/ScootX/ScootX_Data/StreamingAssets/Addressables/Customization/newpack3s
       - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
         m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
       - m_Id: fb5b59db9642cf74c8b7075494ec299c
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
-      - m_Id: fed9de477b7714748881cfbe387bd71b
-        m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/ClothingTest
     - m_InheritedParent: 
       m_Id: 94efe36cdca718b4db60ac91f454d830
       m_ProfileName: MG
       m_Values:
       - m_Id: 09d982614f436cd409abb0ae6e65e3b3
         m_Value: Content/[BuildTarget]
-      - m_Id: 0d37e287349628d42a9e4a56ee0f0910
-        m_Value: file:///D:/MashBoxContentCreation/Assets/Content/MyContentPackB
-      - m_Id: 1e8a0b29d7a6f6a47994749745c3246d
-        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPack
+      - m_Id: 1e5509e336543d1458adcf3726e447ab
+        m_Value: D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 22c2b88bd9cf2ba4dabb6cc7abbd46fe
         m_Value: Content/[BuildTarget]
-      - m_Id: 2feabca73c951e14d9d36540ae9413c6
-        m_Value: file:///D:/MashBoxContentCreation/Assets/Content/MyContentPackA
-      - m_Id: 497060f53e35df4479691e7e1d9ba118
-        m_Value: '[UnityEditor.EditorUserBuildSettings.activeBuildTarget]'
-      - m_Id: 51118b00c7f9c9f47a9c3e876017c920
-        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPackB
-      - m_Id: 59eae6a16afe3b14389b476182c7e4d3
-        m_Value: file:///D:/MashBoxContentCreation/Assets/StreamingAssets/Addressables/Customization/NewContentPack
+      - m_Id: 5c183db6469a951409ec4be0dc2cf880
+        m_Value: file:///D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 654bc31bc64da90439c688e82cafa878
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
-      - m_Id: 687ed2394e5497a439119ea6312f977c
-        m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/MyContentPack'
-      - m_Id: 72d9d6f0dfddb4949bc9985724139253
-        m_Value: file:///D:/BMXStreets_CC/ServerData/StandaloneWindows64/ClothingTest
-      - m_Id: 7b3c7f0237264ac44aa2e2e29ea2f6f8
-        m_Value: D:/SteamLibrary/steamapps/common/ScootX/ScootX_Data/StreamingAssets/Addressables/Customization/newpack3s
-      - m_Id: 85b9b3ba5cabe384287b3b3e3a360c9e
-        m_Value: D:/MashBoxContentCreation/Assets/StreamingAssets/Addressables/Customization/NewContentPack
       - m_Id: c3b1357132e9a5346a88cd86b42ef70e
         m_Value: file:///{Application.streamingAssetsPath}/Addressables/Customization
-      - m_Id: d5fc01642e5187044baa634272fb55ec
-        m_Value: D:/MashBoxContentCreation/Assets/Content/MyContentPackA
-      - m_Id: e5cba061b078c6f499d90c070cb00973
-        m_Value: file:///D:/SteamLibrary/steamapps/common/ScootX/ScootX_Data/StreamingAssets/Addressables/Customization/newpack3s
       - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
         m_Value: Content/[BuildTarget]
       - m_Id: fb5b59db9642cf74c8b7075494ec299c
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
-      - m_Id: fed9de477b7714748881cfbe387bd71b
-        m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/ClothingTest
     m_ProfileEntryNames:
     - m_Id: 09d982614f436cd409abb0ae6e65e3b3
       m_Name: Remote.BuildPath
       m_InlineUsage: 0
-    - m_Id: 0d37e287349628d42a9e4a56ee0f0910
-      m_Name: Pack_MyContentPackB_LoadPath
-      m_InlineUsage: 0
-    - m_Id: 1e8a0b29d7a6f6a47994749745c3246d
-      m_Name: Pack_MyContentPack_BuildPath
+    - m_Id: 1e5509e336543d1458adcf3726e447ab
+      m_Name: Pack_Shirts_BuildPath
       m_InlineUsage: 0
     - m_Id: 22c2b88bd9cf2ba4dabb6cc7abbd46fe
       m_Name: Content_BuildPath
       m_InlineUsage: 0
-    - m_Id: 2feabca73c951e14d9d36540ae9413c6
-      m_Name: Pack_MyContentPackA_LoadPath
-      m_InlineUsage: 0
-    - m_Id: 497060f53e35df4479691e7e1d9ba118
-      m_Name: BuildTarget
-      m_InlineUsage: 0
-    - m_Id: 51118b00c7f9c9f47a9c3e876017c920
-      m_Name: Pack_MyContentPackB_BuildPath
-      m_InlineUsage: 0
-    - m_Id: 59eae6a16afe3b14389b476182c7e4d3
-      m_Name: Pack_NewContentPack_LoadPath
+    - m_Id: 5c183db6469a951409ec4be0dc2cf880
+      m_Name: Pack_Shirts_LoadPath
       m_InlineUsage: 0
     - m_Id: 654bc31bc64da90439c688e82cafa878
       m_Name: Local.LoadPath
       m_InlineUsage: 0
-    - m_Id: 687ed2394e5497a439119ea6312f977c
-      m_Name: Pack_MyContentPack_LoadPath
-      m_InlineUsage: 0
-    - m_Id: 72d9d6f0dfddb4949bc9985724139253
-      m_Name: Pack_ClothingTest_LoadPath
-      m_InlineUsage: 0
-    - m_Id: 7b3c7f0237264ac44aa2e2e29ea2f6f8
-      m_Name: Pack_newpack3s_BuildPath
-      m_InlineUsage: 0
-    - m_Id: 85b9b3ba5cabe384287b3b3e3a360c9e
-      m_Name: Pack_NewContentPack_BuildPath
-      m_InlineUsage: 0
     - m_Id: c3b1357132e9a5346a88cd86b42ef70e
       m_Name: Remote.LoadPath
-      m_InlineUsage: 0
-    - m_Id: d5fc01642e5187044baa634272fb55ec
-      m_Name: Pack_MyContentPackA_BuildPath
-      m_InlineUsage: 0
-    - m_Id: e5cba061b078c6f499d90c070cb00973
-      m_Name: Pack_newpack3s_LoadPath
       m_InlineUsage: 0
     - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
       m_Name: Local.BuildPath
       m_InlineUsage: 0
     - m_Id: fb5b59db9642cf74c8b7075494ec299c
       m_Name: Customization_LoadPath
-      m_InlineUsage: 0
-    - m_Id: fed9de477b7714748881cfbe387bd71b
-      m_Name: Pack_ClothingTest_BuildPath
       m_InlineUsage: 0
     m_ProfileVersion: 1
   m_LabelTable:

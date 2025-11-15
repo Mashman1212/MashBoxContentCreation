@@ -180,7 +180,7 @@ namespace ContentTools.Editor
 
             // During build: make BOTH Build & Load non-dynamic and pointing to the same folder
             string buildPathValue = packBuildFolder;            // filesystem path
-            string loadPathValue  = ToFileURL(packBuildFolder); // file:/// url
+            string loadPathValue = "{Application.streamingAssetsPath}/Addressables/Customization/" + sub;
 
             // Create pack-scoped profile vars (by NAME) and set values
             string packBuildVarName = EnsureProfileVar(prof, $"Pack_{def.PackName}_BuildPath", buildPathValue);
@@ -231,49 +231,42 @@ namespace ContentTools.Editor
                     string catalogRemoteUrl = GuessCatalogRemoteUrl(loadPathValue, catalogLocal);
 
                     // If under StreamingAssets, rewrite catalog to JSON-escaped dynamic tokenized paths AND recompute/replace .hash
-                    if (underSA && !string.IsNullOrEmpty(catalogLocal))
+                    if (!string.IsNullOrEmpty(catalogLocal))
                     {
-                        // Declare hashPath ONCE and reuse in try/catch
+                        string physicalPrefixFwd = (serverData + "/").Replace("\\", "/");
+                        string physicalPrefixBwd = (serverData + "\\").Replace("/", "\\");
+
+                        string dynamicPerPackRaw =
+                            "{Application.streamingAssetsPath}\\Addressables\\Customization\\" + sub + "\\";
+
+                        string dynamicPerPackJson = dynamicPerPackRaw.Replace("\\", "\\\\");
+
+                        string json = File.ReadAllText(catalogLocal, Encoding.UTF8);
+
+                        json = json.Replace(physicalPrefixFwd, dynamicPerPackJson);
+                        json = json.Replace(physicalPrefixBwd, dynamicPerPackJson);
+
+                        File.WriteAllText(catalogLocal, json, Encoding.UTF8);
+
+                        // recompute hash
                         string hashPath = Path.Combine(
-                            Path.GetDirectoryName(catalogLocal) ?? serverData,
+                            Path.GetDirectoryName(catalogLocal),
                             Path.GetFileNameWithoutExtension(catalogLocal) + ".hash"
                         );
 
                         try
                         {
-                            // physical prefix variants to replace
-                            string physicalPrefixFwd = (serverData + "/").Replace("\\", "/");
-                            string physicalPrefixBwd = (serverData + "\\").Replace("/", "\\");
-
-                            // 1) dynamic prefix with backslashes (runtime form you want)
-                            string dynamicPerPackRaw  = (GetStreamingAssetsTokenJson() ?? "{Application.streamingAssetsPath}") + "\\" + sub + "\\";
-
-                            // 2) JSON-safe escaped version (backslashes doubled)
-                            string dynamicPerPackJson = dynamicPerPackRaw.Replace("\\", "\\\\");
-
-                            // 3) rewrite JSON using the JSON-escaped value
-                            string json = File.ReadAllText(catalogLocal, Encoding.UTF8);
-                            json = json.Replace(physicalPrefixFwd, dynamicPerPackJson);
-                            json = json.Replace(physicalPrefixBwd, dynamicPerPackJson);
-
-                            File.WriteAllText(catalogLocal, json, Encoding.UTF8);
-
-                            // recompute .hash to match rewritten JSON
-                            var hash = ComputeMD5(json);
+                            string hash = ComputeMD5(json);
                             File.WriteAllText(hashPath, hash, Encoding.UTF8);
                         }
-                        catch (System.Exception ex)
+                        catch
                         {
-                            Debug.LogWarning($"Catalog rewrite failed: {ex.Message}. Deleting hash to avoid mismatch.");
-                            try
-                            {
-                                if (File.Exists(hashPath)) File.Delete(hashPath);
-                            }
-                            catch {}
+                            if (File.Exists(hashPath)) File.Delete(hashPath);
                         }
 
-                        Debug.Log($"Pack '{def.PackName}' built.\nCatalog: {catalogLocal}\nLoad this at runtime: {catalogRemoteUrl}");
+                        Debug.Log($"Pack '{def.PackName}' built.\nCatalog: {catalogLocal}");
                     }
+
                     else
                     {
                         Debug.LogWarning(

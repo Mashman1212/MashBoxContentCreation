@@ -1914,6 +1914,14 @@ private bool _modioFoldout = true;
                 AssetDatabase.SaveAssets();
             }
 
+            string buildLocation = _buildLocation;
+
+            if (_currentGameName == "Custom Folder")
+            {
+                string target = EditorUserBuildSettings.activeBuildTarget.ToString();
+                buildLocation = Path.Combine(buildLocation, target).Replace("\\", "/");
+            }
+            
             var opts = new AddressablesPackBuilder.BuildOptions
             {
                 profileId = _settings.activeProfileId,
@@ -1925,7 +1933,7 @@ private bool _modioFoldout = true;
                 setPlayerVersionOverride = true,
 
                 sessionRemoteBuildRootOverride =
-                    string.IsNullOrEmpty(_buildLocation) ? null : _buildLocation.Replace("\\", "/"),
+                    string.IsNullOrEmpty(buildLocation) ? null : buildLocation.Replace("\\", "/"),
                 sessionRemoteLoadRootOverride = "{UnityEngine.AddressableAssets.Addressables.RuntimePath}",
             };
 
