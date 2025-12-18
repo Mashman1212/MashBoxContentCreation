@@ -2320,38 +2320,31 @@ private bool _modioFoldout = true;
             RefreshPacks();
         }
 
-        private void RefreshPacks()
-        {
-            var previous = new Dictionary<string, bool>(_foldouts);
-            _packs.Clear();
-            _foldouts.Clear();
+private void RefreshPacks()
+{
+    var previous = new Dictionary<string, bool>(_foldouts);
+    _packs.Clear();
+    _foldouts.Clear();
 
-            // Only find packs inside the forced folder
-            string[] guids = AssetDatabase.FindAssets("t:ContentPackDefinition");
-            foreach (string guid in guids)
-            {
-                string path = AssetDatabase.GUIDToAssetPath(guid);
+    // Find ALL ContentPackDefinition assets in the project
+    string[] guids = AssetDatabase.FindAssets("t:ContentPackDefinition");
+    foreach (string guid in guids)
+    {
+        string path = AssetDatabase.GUIDToAssetPath(guid);
+        var pack = AssetDatabase.LoadAssetAtPath<ContentPackDefinition>(path);
+        if (pack != null)
+            _packs.Add(pack);
+    }
 
-                // 🔒 Safety: ignore anything outside the forced folder
-                if (!path.StartsWith(FORCED_PACKS_FOLDER, StringComparison.OrdinalIgnoreCase))
-                    continue;
+    foreach (var pack in _packs)
+    {
+        pack.RemoveMissingReferences();
+        var path = AssetDatabase.GetAssetPath(pack);
+        _foldouts[path] = previous.ContainsKey(path) ? previous[path] : true;
+    }
 
-                var pack = AssetDatabase.LoadAssetAtPath<ContentPackDefinition>(path);
-                if (pack != null)
-                    _packs.Add(pack);
-            }
-
-            foreach (ContentPackDefinition pack in _packs)
-            {
-                pack.RemoveMissingReferences();
-            }
-            foreach (var pack in _packs)
-            {
-                var path = AssetDatabase.GetAssetPath(pack);
-                _foldouts[path] = previous.ContainsKey(path) ? previous[path] : true;
-            }
-            Repaint();
-        }
+    Repaint();
+}
 
 
         private static void EnsureFolderExists(string folder)
