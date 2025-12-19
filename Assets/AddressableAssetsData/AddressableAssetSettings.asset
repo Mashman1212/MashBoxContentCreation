@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 9964a7f3248cfe242b246176ac83973f
   m_currentHash:
     serializedVersion: 2
-    Hash: 5c945173422613371bb73bfb44140e6c
+    Hash: 00000000000000000000000000000000
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 0
@@ -35,18 +35,22 @@ MonoBehaviour:
   m_CheckForContentUpdateRestrictionsOption: 0
   m_MonoScriptBundleCustomNaming: 
   m_RemoteCatalogBuildPath:
-    m_Id: 1e5509e336543d1458adcf3726e447ab
+    m_Id: bbc89699b14105a47b1c1801826a068a
   m_RemoteCatalogLoadPath:
-    m_Id: 5c183db6469a951409ec4be0dc2cf880
+    m_Id: b96ae548e1cac614b9a18df12b6923a7
   m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
   m_BuildAddressablesWithPlayerBuild: 0
-  m_overridePlayerVersion: Shirts
+  m_overridePlayerVersion: MapleVanillaWheels
   m_GroupAssets:
-  - {fileID: 11400000, guid: ba0f893308b1d2b4eafed19f9c952e31, type: 2}
   - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
+  - {fileID: 11400000, guid: ccbaa3d2548983341867043c0d5b1cd6, type: 2}
+  - {fileID: 11400000, guid: ba0f893308b1d2b4eafed19f9c952e31, type: 2}
+  - {fileID: 11400000, guid: bf12fbc7f4d1ada44a4028b6c658da13, type: 2}
+  - {fileID: 11400000, guid: 439688c7805d5284a98f31584877734e, type: 2}
   - {fileID: 11400000, guid: 5a36b0bd3bb8a4340b5a2331e808a8f8, type: 2}
+  - {fileID: 11400000, guid: 6d16e725b2cb0234199b8293e307e85d, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
     m_CleanupStreamingAssetsAfterBuilds: 1
@@ -64,10 +68,18 @@ MonoBehaviour:
         m_Value: D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 22c2b88bd9cf2ba4dabb6cc7abbd46fe
         m_Value: Content/[BuildTarget]
+      - m_Id: 36641864839c21e4ca4284e6cf540624
+        m_Value: C:/MapleBundles/StandaloneWindows64/MapleVanillaFrames
       - m_Id: 5c183db6469a951409ec4be0dc2cf880
         m_Value: file:///D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 654bc31bc64da90439c688e82cafa878
         m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
+      - m_Id: 929a8f0db2a645749b26cd7c7f32af68
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/MapleVanillaFrames'
+      - m_Id: b96ae548e1cac614b9a18df12b6923a7
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/MapleVanillaWheels'
+      - m_Id: bbc89699b14105a47b1c1801826a068a
+        m_Value: C:/MapleBundles/StandaloneWindows64/MapleVanillaWheels
       - m_Id: c3b1357132e9a5346a88cd86b42ef70e
         m_Value: http://[PrivateIpAddress]:[HostingServicePort]
       - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
@@ -84,10 +96,18 @@ MonoBehaviour:
         m_Value: D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 22c2b88bd9cf2ba4dabb6cc7abbd46fe
         m_Value: Content/[BuildTarget]
+      - m_Id: 36641864839c21e4ca4284e6cf540624
+        m_Value: C:/MapleBundles/StandaloneWindows64/MapleVanillaFrames
       - m_Id: 5c183db6469a951409ec4be0dc2cf880
         m_Value: file:///D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 654bc31bc64da90439c688e82cafa878
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
+      - m_Id: 929a8f0db2a645749b26cd7c7f32af68
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/MapleVanillaFrames'
+      - m_Id: b96ae548e1cac614b9a18df12b6923a7
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/MapleVanillaWheels'
+      - m_Id: bbc89699b14105a47b1c1801826a068a
+        m_Value: C:/MapleBundles/StandaloneWindows64/MapleVanillaWheels
       - m_Id: c3b1357132e9a5346a88cd86b42ef70e
         m_Value: file:///{Application.streamingAssetsPath}/Addressables/Customization
       - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
@@ -104,11 +124,23 @@ MonoBehaviour:
     - m_Id: 22c2b88bd9cf2ba4dabb6cc7abbd46fe
       m_Name: Content_BuildPath
       m_InlineUsage: 0
+    - m_Id: 36641864839c21e4ca4284e6cf540624
+      m_Name: Pack_MapleVanillaFrames_BuildPath
+      m_InlineUsage: 0
     - m_Id: 5c183db6469a951409ec4be0dc2cf880
       m_Name: Pack_Shirts_LoadPath
       m_InlineUsage: 0
     - m_Id: 654bc31bc64da90439c688e82cafa878
       m_Name: Local.LoadPath
+      m_InlineUsage: 0
+    - m_Id: 929a8f0db2a645749b26cd7c7f32af68
+      m_Name: Pack_MapleVanillaFrames_LoadPath
+      m_InlineUsage: 0
+    - m_Id: b96ae548e1cac614b9a18df12b6923a7
+      m_Name: Pack_MapleVanillaWheels_LoadPath
+      m_InlineUsage: 0
+    - m_Id: bbc89699b14105a47b1c1801826a068a
+      m_Name: Pack_MapleVanillaWheels_BuildPath
       m_InlineUsage: 0
     - m_Id: c3b1357132e9a5346a88cd86b42ef70e
       m_Name: Remote.LoadPath
@@ -190,6 +222,9 @@ MonoBehaviour:
     - Burn
     - Crazy
     - Burritio
+    - Tire
+    - Cream
+    - Tan
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: 80a64dd5444db09479054d5399c86e50, type: 2}

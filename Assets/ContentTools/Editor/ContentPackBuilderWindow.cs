@@ -2320,31 +2320,31 @@ private bool _modioFoldout = true;
             RefreshPacks();
         }
 
-private void RefreshPacks()
-{
-    var previous = new Dictionary<string, bool>(_foldouts);
-    _packs.Clear();
-    _foldouts.Clear();
+        private void RefreshPacks()
+        {
+            var previous = new Dictionary<string, bool>(_foldouts);
+            _packs.Clear();
+            _foldouts.Clear();
 
-    // Find ALL ContentPackDefinition assets in the project
-    string[] guids = AssetDatabase.FindAssets("t:ContentPackDefinition");
-    foreach (string guid in guids)
-    {
-        string path = AssetDatabase.GUIDToAssetPath(guid);
-        var pack = AssetDatabase.LoadAssetAtPath<ContentPackDefinition>(path);
-        if (pack != null)
-            _packs.Add(pack);
-    }
+            // Find ALL ContentPackDefinition assets in the project
+            string[] guids = AssetDatabase.FindAssets("t:ContentPackDefinition");
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var pack = AssetDatabase.LoadAssetAtPath<ContentPackDefinition>(path);
+                if (pack != null)
+                    _packs.Add(pack);
+            }
 
-    foreach (var pack in _packs)
-    {
-        pack.RemoveMissingReferences();
-        var path = AssetDatabase.GetAssetPath(pack);
-        _foldouts[path] = previous.ContainsKey(path) ? previous[path] : true;
-    }
+            foreach (var pack in _packs)
+            {
+                pack.RemoveMissingReferences();
+                var path = AssetDatabase.GetAssetPath(pack);
+                _foldouts[path] = previous.ContainsKey(path) ? previous[path] : true;
+            }
 
-    Repaint();
-}
+            Repaint();
+        }
 
 
         private static void EnsureFolderExists(string folder)
