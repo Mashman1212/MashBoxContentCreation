@@ -2326,30 +2326,23 @@ private bool _modioFoldout = true;
             _packs.Clear();
             _foldouts.Clear();
 
-            // Only find packs inside the forced folder
+            // Find ALL ContentPackDefinition assets in the project
             string[] guids = AssetDatabase.FindAssets("t:ContentPackDefinition");
             foreach (string guid in guids)
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
-
-                // 🔒 Safety: ignore anything outside the forced folder
-                if (!path.StartsWith(FORCED_PACKS_FOLDER, StringComparison.OrdinalIgnoreCase))
-                    continue;
-
                 var pack = AssetDatabase.LoadAssetAtPath<ContentPackDefinition>(path);
                 if (pack != null)
                     _packs.Add(pack);
             }
 
-            foreach (ContentPackDefinition pack in _packs)
-            {
-                pack.RemoveMissingReferences();
-            }
             foreach (var pack in _packs)
             {
+                pack.RemoveMissingReferences();
                 var path = AssetDatabase.GetAssetPath(pack);
                 _foldouts[path] = previous.ContainsKey(path) ? previous[path] : true;
             }
+
             Repaint();
         }
 
