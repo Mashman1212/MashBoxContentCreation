@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 9964a7f3248cfe242b246176ac83973f
   m_currentHash:
     serializedVersion: 2
-    Hash: 5c945173422613371bb73bfb44140e6c
+    Hash: 00000000000000000000000000000000
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 0
@@ -35,18 +35,26 @@ MonoBehaviour:
   m_CheckForContentUpdateRestrictionsOption: 0
   m_MonoScriptBundleCustomNaming: 
   m_RemoteCatalogBuildPath:
-    m_Id: 1e5509e336543d1458adcf3726e447ab
+    m_Id: df41d08b4b1bed84796d93bd5d4f54e7
   m_RemoteCatalogLoadPath:
-    m_Id: 5c183db6469a951409ec4be0dc2cf880
+    m_Id: b03a8346c7f8904419ab49bce1ce08cc
   m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
   m_BuildAddressablesWithPlayerBuild: 0
-  m_overridePlayerVersion: Shirts
+  m_overridePlayerVersion: Vanilla Clothing
   m_GroupAssets:
-  - {fileID: 11400000, guid: ba0f893308b1d2b4eafed19f9c952e31, type: 2}
+  - {fileID: 0}
   - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
+  - {fileID: 11400000, guid: 31b656f07eb681a4f8d94fe506754e6e, type: 2}
+  - {fileID: 11400000, guid: 3f014c67043b27e49becafef282734e0, type: 2}
+  - {fileID: 11400000, guid: 21c18b059496cff46a1c9e629f47beeb, type: 2}
+  - {fileID: 11400000, guid: afe694e5f9f4a654f8a1fa7d125746cf, type: 2}
   - {fileID: 11400000, guid: 5a36b0bd3bb8a4340b5a2331e808a8f8, type: 2}
+  - {fileID: 11400000, guid: ba0f893308b1d2b4eafed19f9c952e31, type: 2}
+  - {fileID: 11400000, guid: 696764cb570d8c547aa4c9c9b4c51123, type: 2}
+  - {fileID: 0}
+  - {fileID: 11400000, guid: 4963f4789742de2439497db4f3824705, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
     m_CleanupStreamingAssetsAfterBuilds: 1
@@ -68,8 +76,13 @@ MonoBehaviour:
         m_Value: file:///D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 654bc31bc64da90439c688e82cafa878
         m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
+      - m_Id: b03a8346c7f8904419ab49bce1ce08cc
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
+          Clothing'
       - m_Id: c3b1357132e9a5346a88cd86b42ef70e
         m_Value: http://[PrivateIpAddress]:[HostingServicePort]
+      - m_Id: df41d08b4b1bed84796d93bd5d4f54e7
+        m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/Vanilla Clothing
       - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
         m_Value: '[UnityEngine.AddressableAssets.Addressables.BuildPath]/[BuildTarget]'
       - m_Id: fb5b59db9642cf74c8b7075494ec299c
@@ -88,8 +101,13 @@ MonoBehaviour:
         m_Value: file:///D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 654bc31bc64da90439c688e82cafa878
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
+      - m_Id: b03a8346c7f8904419ab49bce1ce08cc
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
+          Clothing'
       - m_Id: c3b1357132e9a5346a88cd86b42ef70e
         m_Value: file:///{Application.streamingAssetsPath}/Addressables/Customization
+      - m_Id: df41d08b4b1bed84796d93bd5d4f54e7
+        m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/Vanilla Clothing
       - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
         m_Value: Content/[BuildTarget]
       - m_Id: fb5b59db9642cf74c8b7075494ec299c
@@ -110,8 +128,14 @@ MonoBehaviour:
     - m_Id: 654bc31bc64da90439c688e82cafa878
       m_Name: Local.LoadPath
       m_InlineUsage: 0
+    - m_Id: b03a8346c7f8904419ab49bce1ce08cc
+      m_Name: Pack_Vanilla Clothing_LoadPath
+      m_InlineUsage: 0
     - m_Id: c3b1357132e9a5346a88cd86b42ef70e
       m_Name: Remote.LoadPath
+      m_InlineUsage: 0
+    - m_Id: df41d08b4b1bed84796d93bd5d4f54e7
+      m_Name: Pack_Vanilla Clothing_BuildPath
       m_InlineUsage: 0
     - m_Id: f28cfc960dd47c3488b15a62bbdf09ed
       m_Name: Local.BuildPath
@@ -190,6 +214,16 @@ MonoBehaviour:
     - Burn
     - Crazy
     - Burritio
+    - Tire
+    - Cream
+    - Tan
+    - Destruction
+    - Jammy Time
+    - Snow Flake Black
+    - Snow Flake Green
+    - Snow Flake Red
+    - Jammy Time Snow Flake
+    - Christmas
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: 80a64dd5444db09479054d5399c86e50, type: 2}

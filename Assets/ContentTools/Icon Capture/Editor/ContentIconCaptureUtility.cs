@@ -157,7 +157,8 @@ namespace Content_Icon_Capture.Editor
                         captureLocation.GetChild(0).localRotation = Quaternion.Euler(eulOff);
                     }
                     
-                    EncapuslateObjectToBounds(instance, captureLocation);
+                    EncapsulateObjectToBounds(instance, captureLocation);
+                    
                     
                     // Save path: mirror Prefabs -> Icons and append "_Icon"
                     string dir = prefabPath.Replace("\\", "/");
@@ -177,6 +178,39 @@ namespace Content_Icon_Capture.Editor
             });
         }
 
+        
+        private static void FrameObjectToCamera(
+            GameObject go,
+            Camera cam,
+            Transform captureRoot,
+            float padding = 1.1f
+        )
+        {
+            if (!go || !cam || !captureRoot) return;
+
+            var renderers = go.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) return;
+
+            // Combine renderer bounds (WORLD space)
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++)
+                bounds.Encapsulate(renderers[i].bounds);
+
+            // Center object on capture root
+            Vector3 center = bounds.center;
+            go.transform.position += captureRoot.position - center;
+
+            // Calculate camera distance to fit bounds
+            float radius = bounds.extents.magnitude * padding;
+            float fovRad = cam.fieldOfView * Mathf.Deg2Rad;
+            float distance = radius / Mathf.Sin(fovRad * 0.5f);
+
+            cam.transform.position =
+                captureRoot.position - cam.transform.forward * distance;
+        }
+
+        
+        
         // ===================== Helpers =====================
 
         private static void SetToDisplayMesh(GameObject go)
@@ -191,52 +225,117 @@ namespace Content_Icon_Capture.Editor
             }
         }
 
-        private static void EncapuslateObjectToBounds(GameObject go, Transform captureLocation)
+        public static void EncapsulateObjectToBounds(GameObject go, Transform captureRoot)
         {
-            if (go == null || captureLocation == null) return;
+            if (!go) return;
+            
+            Transform offset = go.transform.parent;
+// 1. Reset
+            offset.localPosition = Vector3.zero;
+            offset.localRotation = Quaternion.identity;
+            offset.localScale    = Vector3.one;
 
-            Debug.Log("EncapuslateObjectToBounds");
-            var meshFilters = go.GetComponentsInChildren<MeshFilter>();
-            var skinned = go.GetComponentsInChildren<SkinnedMeshRenderer>();
-            Bounds worldBounds = new Bounds(go.transform.position, Vector3.zero);
-
-            foreach (var mf in meshFilters)
-            {
-                var m = mf.sharedMesh;
-                if (!m) continue;
-                var verts = m.vertices;
-                for (int i = 0; i < verts.Length; i++)
-                    worldBounds.Encapsulate(mf.transform.TransformPoint(verts[i]));
-            }
-
-            foreach (var smr in skinned)
-            {
-                var m = new Mesh();
-                smr.BakeMesh(m);
-                var verts = m.vertices;
-                for (int i = 0; i < verts.Length; i++)
-                    worldBounds.Encapsulate(smr.transform.TransformPoint(verts[i]));
-                Object.DestroyImmediate(m);
-            }
-
-            if (worldBounds.size == Vector3.zero)
-            {
-                go.transform.localPosition = Vector3.zero;
-                go.transform.localRotation = Quaternion.identity;
-                return;
-            }
-
-            var center = worldBounds.center;
-            float maxDim = Mathf.Max(worldBounds.size.x, worldBounds.size.y);
-            float scale = (maxDim > 0f) ? (1f / maxDim) : 1f;
-
-            go.transform.localScale = Vector3.one * scale;
-            Vector3 newPos = captureLocation.position - (center - go.transform.position) * scale;
-            newPos.x = go.transform.position.x;
-            newPos.z = go.transform.position.z;
-            go.transform.position = newPos;
+            go.transform.localPosition = Vector3.zero;
             go.transform.localRotation = Quaternion.identity;
+            go.transform.localScale    = Vector3.one;
+
+// 2. Calculate bounds (UNSCALED)
+            Bounds bounds = CalculateAccurateWorldBounds(go);
+
+// 3. CENTER FIRST (using unscaled bounds)
+            Vector3 deltaToCenter = offset.position - bounds.center;
+            go.transform.position += deltaToCenter;
+
+// 4. Recalculate bounds (now centered)
+            bounds = CalculateAccurateWorldBounds(go);
+
+// 5. SCALE OFFSET (pivot is now correct)
+            float maxDim = Mathf.Max(bounds.size.x, bounds.size.y, bounds.size.z);
+            if (maxDim > 0f)
+            {
+                float scale = 1f / maxDim;
+                offset.localScale = Vector3.one * scale;
+            }
+            // IMPORTANT: force transform update
+            Physics.SyncTransforms();
+
+            // --------------------------------------------------
+            // 3) Recalculate bounds (SCALED)
+            // --------------------------------------------------
+            Bounds scaledBounds = CalculateAccurateWorldBounds(go);
+
+            // --------------------------------------------------
+            // 4) CENTER AFTER scaling
+            // --------------------------------------------------
+            Vector3 targetWorld = go.transform.parent.position;
+            Vector3 delta = targetWorld - scaledBounds.center;
+            // go.transform.position += delta;
+
+            // --------------------------------------------------
+            // DEBUG DRAW (FINAL)
+            // --------------------------------------------------
+            Debug.DrawLine(
+                scaledBounds.center + Vector3.up * 1.05f,
+                scaledBounds.center,
+                Color.magenta,
+                5f
+            );
         }
+
+        private static Bounds CalculateAccurateWorldBounds(GameObject go)
+        {
+            var renderers = go.GetComponentsInChildren<Renderer>();
+            bool hasBounds = false;
+            Bounds combinedBounds = new Bounds();
+
+            foreach (var r in renderers)
+            {
+                if (!r.enabled || !r.gameObject.activeInHierarchy)
+                    continue;
+
+                // ---------------- Skinned Mesh ----------------
+                if (r is SkinnedMeshRenderer smr)
+                {
+                    // Bake current pose
+                    Mesh bakedMesh = new Mesh();
+                    smr.BakeMesh(bakedMesh);
+
+                    Bounds localBounds = bakedMesh.bounds;
+
+                    // Convert local mesh bounds to world space
+                    Vector3 worldCenter = smr.transform.TransformPoint(localBounds.center);
+                    Vector3 worldSize = Vector3.Scale(localBounds.size, smr.transform.lossyScale);
+
+                    Bounds worldBounds = new Bounds(worldCenter, worldSize);
+
+                    if (!hasBounds)
+                    {
+                        combinedBounds = worldBounds;
+                        hasBounds = true;
+                    }
+                    else
+                    {
+                        combinedBounds.Encapsulate(worldBounds);
+                    }
+                }
+                // ---------------- Static Mesh ----------------
+                else
+                {
+                    if (!hasBounds)
+                    {
+                        combinedBounds = r.bounds;
+                        hasBounds = true;
+                    }
+                    else
+                    {
+                        combinedBounds.Encapsulate(r.bounds);
+                    }
+                }
+            }
+
+            return combinedBounds;
+        }
+
 
         /// <summary>Open ONLY the capture scene to avoid double lighting, run the action, then restore scenes.</summary>
         private static void RunInCaptureScene(System.Action action)

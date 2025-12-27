@@ -85,7 +85,11 @@ namespace ContentTools.Icon_Capture.Editor
 
             if (GUILayout.Button("Encapsulate To Bounds"))
             {
-                EncapuslateObjectToBounds();
+                var target = _captureLocationGo.transform.GetChild(0).GetChild(0).gameObject;
+
+                ContentIconCaptureUtility.EncapsulateObjectToBounds(target, _captureLocationGo.transform);
+
+                //ContentIconCaptureUtility.FrameObjectToCamera(target, _captureCamera, _captureLocationGo.transform);
             }
 
             if (GUILayout.Button("Capture Selection"))
@@ -168,14 +172,14 @@ namespace ContentTools.Icon_Capture.Editor
                     _currentCaptureObject.InstantiatedObj.SetActive(true);
                     //SetToDisplayMesh(_currentCaptureObject.InstantiatedObj);
 
-                    EncapuslateObjectToBounds(_currentCaptureObject.InstantiatedObj);
+                    //EncapuslateObjectToBounds(_currentCaptureObject.InstantiatedObj);
                 }
             }
         }
 
         void EncapuslateObjectToBounds()
         {
-            EncapuslateObjectToBounds(_captureLocationGo.transform.GetChild(0).gameObject);
+           // EncapuslateObjectToBounds(_captureLocationGo.transform.GetChild(0).gameObject);
         }
         
         void CaptureNext()
@@ -221,69 +225,7 @@ namespace ContentTools.Icon_Capture.Editor
                 }
             }
         }
-
-
-        void EncapuslateObjectToBounds(GameObject go)
-        {
-            if (go == null)
-            {
-                Debug.LogError("GameObject is null. Can't encapsulate null object to bounds.");
-                return;
-            }
-
-            // Calculate the bounds of the GameObject
-            MeshFilter[] meshFilters = go.GetComponentsInChildren<MeshFilter>();
-            SkinnedMeshRenderer[] skinnedMeshRenderers = go.GetComponentsInChildren<SkinnedMeshRenderer>();
-            Bounds worldBounds = new Bounds(go.transform.position, Vector3.zero);
-            foreach (MeshFilter mf in meshFilters)
-            {
-                foreach (Vector3 vertex in mf.sharedMesh.vertices)
-                {
-                    Vector3 worldVertex = mf.transform.TransformPoint(vertex);
-                    worldBounds.Encapsulate(worldVertex);
-                }
-            }
-
-            foreach (SkinnedMeshRenderer smr in skinnedMeshRenderers)
-            {
-                Mesh mesh = new Mesh();
-                smr.BakeMesh(mesh);
-                foreach (Vector3 vertex in mesh.vertices)
-                {
-                    Vector3 worldVertex = smr.transform.TransformPoint(vertex);
-                    worldBounds.Encapsulate(worldVertex);
-                }
-            }
-
-            Renderer[] renderers = go.GetComponentsInChildren<Renderer>();
-            if (renderers.Length > 0)
-            {
-                Debug.Log("Encapsulating object to bounds...");
-                // Get the center of the bounds
-                Vector3 center = worldBounds.center;
-                // Calculate max dimension of the bounds
-                float maxDimension = Mathf.Max(worldBounds.size.x, worldBounds.size.y);
-                // Calculate scale factor
-                float scaleFactor = 1.0f / maxDimension;
-                // Scale the GameObject
-                go.transform.localScale = new Vector3(scaleFactor, scaleFactor, scaleFactor);
-                // Set the position of the new GameObject to align its center with its parent's pivot
-                go.transform.position = _captureLocationGo.transform.position -
-                                        (center - go.transform.position) * scaleFactor;
-                Debug.Log($"Object {go.name} has been encapsulated to bounds with scale factor {scaleFactor}.");
-            }
-            else
-            {
-                Debug.Log("No renderers found on the GameObject. Setting position to zero and rotation to identity...");
-                go.transform.localPosition = Vector3.zero;
-            }
-
-            go.transform.localRotation = Quaternion.identity;
-            Debug.Log(
-                $"Final position: {go.transform.position}, scale: {go.transform.localScale}, rotation: {go.transform.localRotation} for the object {go.name}.");
-        }
-
-
+        
         public void InstantiateSelected()
         {
             // Get the selected objects
