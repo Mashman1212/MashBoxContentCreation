@@ -1,5 +1,11 @@
 {
   "dependencies": {
+    "com.mg.mashbox.sdk": {
+      "version": "file:D:/mashbox-sdk/com.mg.mashbox.sdk",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {}
+    },
     "com.unity.addressables": {
       "version": "1.22.3",
       "depth": 0,

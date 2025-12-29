@@ -21,6 +21,7 @@ using Object = UnityEngine.Object;
 
 using ContentTools.Editor.SteamDetect;
 using ContentTools.ModIo;
+using MashBoxSDK.Clothing;
 
 namespace ContentTools.Editor
 {
@@ -136,7 +137,7 @@ namespace ContentTools.Editor
         private const string HEADER_RESOURCE_NAME = "ContentManager_Header";
         private Texture2D _headerTex;
 
-        
+        private Dictionary<string, bool> _packFoldoutState = new();
         
 // Footer (button bar) height
         private const float FOOTER_H = 40f;
@@ -192,7 +193,7 @@ namespace ContentTools.Editor
 
             EditorApplication.projectChanged += OnProjectChanged;
 
-            RevalidateAllItems();
+            //RevalidateAllItems();
 
 // Detect Steam installs for allowed games
             var ids = ALLOWED_GAMES.Select(g => g.SteamAppId).ToArray();
@@ -209,7 +210,7 @@ namespace ContentTools.Editor
 
         private void OnProjectChanged()
         {
-            RevalidateAllItems();
+            //RevalidateAllItems();
             foreach (ContentPackDefinition pack in _packs)
             {
                 pack.RemoveMissingReferences();
@@ -217,7 +218,20 @@ namespace ContentTools.Editor
 
             Repaint();
         }
+        bool GetPackFoldout(string packGuid)
+        {
+            if (!_packFoldoutState.TryGetValue(packGuid, out var state))
+            {
+                state = false; // 👈 collapsed by default
+                _packFoldoutState[packGuid] = state;
+            }
+            return state;
+        }
 
+        void SetPackFoldout(string packGuid, bool value)
+        {
+            _packFoldoutState[packGuid] = value;
+        }
 
 //  — smaller, tighter cap
         private const float HEADER_MIN = 56f;
@@ -1131,464 +1145,249 @@ namespace ContentTools.Editor
 
         private void DrawPacksList()
         {
-            //using (var scroll = new EditorGUILayout.ScrollViewScope(_scroll))
+            if (_packs == null || _packs.Count == 0)
+                return;
+
+            for (int j = 0; j < _packs.Count; j++)
             {
-                //_scroll = scroll.scrollPosition;
+                var p = _packs[j];
+                if (p == null)
+                    continue;
 
-                if (_packs.Count == 0)
+                var key = AssetDatabase.GetAssetPath(p);
+                if (string.IsNullOrEmpty(key))
+                    continue;
+
+                bool expanded = GetPackFoldout(key);
+
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
                 {
-
-                    return;
-                }
-
-                for (int j = 0; j < _packs.Count; j++)
-                {
-                    var p = _packs[j];
-                    if (p == null) continue;
-                    var key = AssetDatabase.GetAssetPath(p);
-                    if (string.IsNullOrEmpty(key)) continue;
-
-                    if (!_foldouts.ContainsKey(key)) _foldouts[key] = true;
-
-
-                    using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                    // ===== PACK HEADER =====
+                    using (new EditorGUILayout.HorizontalScope())
                     {
-                        using (new EditorGUILayout.HorizontalScope())
+                        expanded = EditorGUILayout.Foldout(expanded, p.name, true);
+                        GUILayout.FlexibleSpace();
+
+                        // Build this single pack to game
+                        if (GUILayout.Button("Build To " + _currentGameName, GUILayout.Width(140)))
                         {
-                            _foldouts[key] = EditorGUILayout.Foldout(_foldouts[key], p.name, true);
-                            GUILayout.FlexibleSpace();
-
-                            if (GUILayout.Button("Rename", GUILayout.Width(90)))
+                            var issues = ValidatePack(p, _rules);
+                            if (issues.Any(i => i.severity == ContentPackValidator.Severity.Error))
                             {
-                                // Inside the Rename button callback, replace the validation with:
-                                RenameDialog.Show(
-                                    "Rename Content Pack",
-                                    $"Enter a new name for '{p.name}':",
-                                    p.name,
-                                    // REPLACE the rename callback body with this stricter flow:
-                                    (newName) =>
-                                    {
-                                        var safe = SanitizePackName(newName);
-                                        if (string.IsNullOrWhiteSpace(safe) || safe == p.name) return;
-
-                                        if (PackNameExists(safe, out var existingPath))
-                                        {
-                                            EditorUtility.DisplayDialog("Duplicate Name",
-                                                $"A ContentPackDefinition named '{safe}' already exists:\n{existingPath}",
-                                                "OK");
-                                            return;
-                                        }
-
-                                        if (AddressablesGroupExists(safe))
-                                        {
-                                            EditorUtility.DisplayDialog("Duplicate Group",
-                                                $"An Addressables Group named '{safe}' already exists.", "OK");
-                                            return;
-                                        }
-
-                                        string assetPath = AssetDatabase.GetAssetPath(p);
-                                        AssetDatabase.RenameAsset(assetPath, safe);
-                                        AssetDatabase.SaveAssets();
-                                        Debug.Log($"[ContentPackBuilder] Renamed pack from '{p.name}' to '{safe}'");
-                                    }
-
-                                );
+                                ContentPackValidator.LogReport(p, issues, "Build blocked");
+                                EditorUtility.DisplayDialog(
+                                    "Build blocked",
+                                    $"'{p.name}' has validation errors. See Console.",
+                                    "OK");
                             }
-
-
-
-// Build this single pack
-                            if (GUILayout.Button("Build To " + _currentGameName, GUILayout.Width(120)))
+                            else
                             {
-                                // Validate this pack before building
-                                var issues = ValidatePack(p, _rules);
-                                if (issues.Any(i => i.severity == ContentPackValidator.Severity.Error))
-                                {
-                                    ContentPackValidator.LogReport(p, issues, "Build blocked");
-                                    EditorUtility.DisplayDialog("Build blocked",
-                                        $"'{p.name}' has validation errors. See Console.", "OK");
-                                }
-                                else
-                                {
-                                    BuildPacks(new List<ContentPackDefinition> { p }, cleanMissing: true);
-                                }
+                                BuildPacks(new List<ContentPackDefinition> { p }, cleanMissing: true);
                             }
-
-// --- Show "Publish to Mod.io" only if authorized ---
-if (ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame())
-{
-    string currentGame = EditorPrefs.GetString("ModIo.CurrentGame", "Unknown");
-
-    // ✅ Gate by: cooker online + ALL items valid (no errors, no warnings)
-    bool cookerOk = (_cookerStatus == CookerStatus.Online);
-    var (allValid, errCount, warnCount) = ComputePackValidation(p, _rules);
-
-    using (new EditorGUI.DisabledScope(!(cookerOk)))
-    {
-        if (GUILayout.Button($"Publish to {currentGame} Mod.io", GUILayout.Width(190)))
-        {
-            // double-guard in case of race
-            if (!cookerOk)
-            {
-                EditorUtility.DisplayDialog(
-                    "Cooker Offline",
-                    $"The content cooking server appears {_cookerStatus.ToString().ToLowerInvariant()} ({_cookerNote}).\nPlease try again later.",
-                    "OK");
-                return;
-            }
-
-            if (!allValid)
-            {
-                EditorUtility.DisplayDialog(
-                    "Fix Validation Before Publishing",
-                    $"This pack has issues:\nErrors: {errCount}\nWarnings: {warnCount}\n\nAll items must be ✓ Valid to publish.",
-                    "OK");
-                return;
-            }
-
-            // 🧩 Existing preflight checks you already have:
-            if (p._items == null || p._items.Count == 0)
-            {
-                EditorUtility.DisplayDialog("Empty Pack",
-                    $"This content pack '{p.name}' is empty.\n\nAdd content before publishing to Mod.io.",
-                    "OK");
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(p.summary))
-            {
-                EditorUtility.DisplayDialog("Missing Summary",
-                    $"This content pack '{p.name}' does not have a summary.\n\nA summary is required before publishing.",
-                    "OK");
-                return;
-            }
-
-            if (p.mainScreenshot == null)
-            {
-                EditorUtility.DisplayDialog("Missing Screenshot",
-                    $"This content pack '{p.name}' does not have a main screenshot.\n\nA 1920×1080 image is required.",
-                    "OK");
-                return;
-            }
-
-            string path = AssetDatabase.GetAssetPath(p.mainScreenshot);
-            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
-            if (tex == null || tex.width != 1920 || tex.height != 1080)
-            {
-                EditorUtility.DisplayDialog("Invalid Screenshot Size",
-                    $"Screenshot must be exactly 1920×1080.\nCurrent: {(tex != null ? $"{tex.width}×{tex.height}" : "Unknown")}",
-                    "OK");
-                return;
-            }
-
-            // 🧠 Confirmation popup
-            bool confirm = EditorUtility.DisplayDialog(
-                "Confirm Mod.io Publish",
-                $"Are you sure you want to publish this pack to {currentGame} Mod.io?\n\nThis will attach your Mod.io user token to the pack definition.",
-                "Yes, Publish", "Cancel");
-
-            if (!confirm) return;
-
-            // Persist token + publish (your existing flow)
-            string token = ContentTools.ModIo.ModIoAuth.CurrentToken;
-            Undo.RecordObject(p, "Set Mod.io User Token");
-            p.modioUserToken = token;
-            p.gameName = currentGame;
-            EditorUtility.SetDirty(p);
-            AssetDatabase.SaveAssets();
-
-            try
-            {
-                PublishToModioAsync(p, currentGame);
-            }
-            catch (TaskCanceledException tce)
-            {
-                EditorUtility.ClearProgressBar();
-                Debug.LogError($"[ContentPackBuilder] Upload timed out or was canceled. Details: {tce}");
-                EditorUtility.DisplayDialog("Publish Failed",
-                    "Upload timed out (TaskCanceled). Try again after increasing HttpClient.Timeout.", "OK");
-            }
-            catch (Exception ex)
-            {
-                EditorUtility.ClearProgressBar();
-                Debug.LogError($"[ContentPackBuilder] Publish failed: {ex}");
-                EditorUtility.DisplayDialog("Publish Failed", ex.Message, "OK");
-            }
-        }
-    }
-
-    // Optional: small hint if disabled
-    //if (!cookerOk)
-    //    EditorGUILayout.HelpBox("Cooker is not connected.", MessageType.Info);
-    //else if (!allValid)
-    //    EditorGUILayout.HelpBox($"Fix validation first (Errors: {errCount}, Warnings: {warnCount}).", MessageType.Error);
-}
-else
-{
-    GUILayout.Label("🔒 Not authorized with Mod.io", GUILayout.Width(190));
-}
-
-
-
-
-// Ping the pack asset in the Project window
-                            if (GUILayout.Button("PING", GUILayout.Width(70)))
-                            {
-                                EditorGUIUtility.PingObject(p);
-                                Selection.activeObject = p;
-                            }
-
-// Only show "Generate Icons" if the pack has any items
-                            bool hasItems = p._items != null && p._items.Any(x => x != null);
-                            if (hasItems)
-                            {
-                                if (GUILayout.Button("Generate Icons", GUILayout.Width(120)))
-                                    GenerateIconsForPack(p);
-                            }
-
-                            if (GUILayout.Button("Delete", GUILayout.Width(70)))
-                                DeletePack(p);
-
                         }
 
-                        GUILayout.Space(20);
+// Optional: Build to custom target
+                        //if (GUILayout.Button("Build To Custom", GUILayout.Width(120)))
+                        //{
+                        //    BuildPacks(new List<ContentPackDefinition> { p }, cleanMissing: true);
+                        //}
+                        if (ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame())
+                        {
+                            string currentGame = EditorPrefs.GetString("ModIo.CurrentGame", "Unknown");
 
-                        if (_foldouts.ContainsKey(key))
-                            if (_foldouts[key])
+                            bool cookerOk = (_cookerStatus == CookerStatus.Online);
+                            var (allValid, errCount, warnCount) = ComputePackValidation(p, _rules);
+
+                            using (new EditorGUI.DisabledScope(!cookerOk))
                             {
-
-                                EditorGUI.indentLevel++;
-
-                                // === Pack Metadata foldout ===
-                                string metaKey = p.name + "_meta";
-                                if (!_metaFoldouts.ContainsKey(metaKey))
-                                    _metaFoldouts[metaKey] = false;
-
-                                _metaFoldouts[metaKey] =
-                                    EditorGUILayout.Foldout(_metaFoldouts[metaKey], "Pack Metadata", true);
-
-                                if (_metaFoldouts[metaKey])
+                                if (GUILayout.Button($"Publish to {currentGame} Mod.io", GUILayout.Width(190)))
                                 {
-                                    using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                                    if (!cookerOk)
                                     {
-                                        EditorGUI.indentLevel++;
-
-                                        // Summary
-                                        EditorGUI.BeginChangeCheck();
-                                        EditorGUILayout.LabelField("Summary");
-                                        string newSummary =
-                                            EditorGUILayout.TextArea(p.summary, GUILayout.MinHeight(40));
-                                        if (EditorGUI.EndChangeCheck())
-                                        {
-                                            Undo.RecordObject(p, "Edit Pack Summary");
-                                            p.summary = newSummary;
-                                            EditorUtility.SetDirty(p);
-                                        }
-
-                                        // Screenshot
-                                        EditorGUI.BeginChangeCheck();
-// === Screenshot Preview ===
-                                        EditorGUILayout.LabelField("Main Screenshot (1920x1080)",
-                                            EditorStyles.boldLabel);
-
-                                        Rect previewRect =
-                                            GUILayoutUtility.GetRect(200, 120, GUILayout.ExpandWidth(true));
-                                        GUIStyle boxStyle = new GUIStyle(GUI.skin.box)
-                                        {
-                                            alignment = TextAnchor.MiddleCenter,
-                                            normal = { textColor = Color.gray }
-                                        };
-
-// Handle image assignment
-                                        if (p.mainScreenshot == null)
-                                        {
-                                            GUI.Box(previewRect, "Drop Image Here\n(1920×1080 required)", boxStyle);
-                                            var dropEvt = Event.current;
-                                            if (dropEvt.type == EventType.DragUpdated ||
-                                                dropEvt.type == EventType.DragPerform)
-                                            {
-                                                if (previewRect.Contains(dropEvt.mousePosition))
-                                                {
-                                                    DragAndDrop.visualMode = DragAndDropVisualMode.Copy;
-
-                                                    if (dropEvt.type == EventType.DragPerform)
-                                                    {
-                                                        DragAndDrop.AcceptDrag();
-                                                        foreach (var obj in DragAndDrop.objectReferences)
-                                                        {
-                                                            if (obj is Texture2D tex)
-                                                            {
-                                                                Undo.RecordObject(p, "Assign Main Screenshot");
-                                                                p.mainScreenshot = tex;
-                                                                EditorUtility.SetDirty(p);
-                                                                break;
-                                                            }
-                                                        }
-                                                    }
-
-                                                    dropEvt.Use();
-                                                }
-                                            }
-                                        }
-                                        else
-                                        {
-                                            // Draw the image with proper aspect
-                                            Texture2D tex = p.mainScreenshot;
-                                            Rect imgRect = new Rect(previewRect.x + 4, previewRect.y + 4,
-                                                previewRect.width - 8, previewRect.height - 8);
-                                            GUI.DrawTexture(imgRect, tex, ScaleMode.ScaleToFit);
-                                            GUI.Box(previewRect, GUIContent.none);
-
-                                            // Dimension validation
-                                            if (tex.width != 1920 || tex.height != 1080)
-                                            {
-                                                EditorGUILayout.HelpBox(
-                                                    $"⚠️ Image is {tex.width}×{tex.height}. Required size is 1920×1080.",
-                                                    MessageType.Warning
-                                                );
-                                            }
-
-                                            // Allow reassigning / clearing
-                                            using (new GUILayout.HorizontalScope())
-                                            {
-                                                if (GUILayout.Button("Change Screenshot", GUILayout.Width(150)))
-                                                {
-                                                    var newTex =
-                                                        (Texture2D)EditorGUILayout.ObjectField(p.mainScreenshot,
-                                                            typeof(Texture2D), false);
-                                                    if (newTex != null && newTex != p.mainScreenshot)
-                                                    {
-                                                        Undo.RecordObject(p, "Change Main Screenshot");
-                                                        p.mainScreenshot = newTex;
-                                                        EditorUtility.SetDirty(p);
-                                                    }
-                                                }
-
-                                                if (GUILayout.Button("Clear", GUILayout.Width(70)))
-                                                {
-                                                    Undo.RecordObject(p, "Clear Main Screenshot");
-                                                    p.mainScreenshot = null;
-                                                    EditorUtility.SetDirty(p);
-                                                }
-                                            }
-                                        }
-
-                                        //if (EditorGUI.EndChangeCheck())
-                                        //{
-                                        //    Undo.RecordObject(p, "Change Main Screenshot");
-                                        //    p.mainScreenshot = newShot;
-                                        //    EditorUtility.SetDirty(p);
-                                        //}
-
-                                        // Validate image dimensions
-                                        if (p.mainScreenshot != null)
-                                        {
-                                            string path = AssetDatabase.GetAssetPath(p.mainScreenshot);
-                                            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
-                                            if (tex != null && (tex.width != 1920 || tex.height != 1080))
-                                            {
-                                                EditorGUILayout.HelpBox(
-                                                    $"⚠️ Image is {tex.width}×{tex.height}. Required size is 1920×1080.",
-                                                    MessageType.Warning
-                                                );
-                                            }
-                                        }
-
-                                        EditorGUI.indentLevel--;
+                                        EditorUtility.DisplayDialog(
+                                            "Cooker Offline",
+                                            $"The content cooking server is {_cookerStatus}.",
+                                            "OK");
+                                        return;
                                     }
-                                }
 
-
-
-
-                                // Items list with inline validation
-                                if (p._items != null && p._items.Count > 0)
-                                {
-                                    // Use for-loop so we can safely remove by index
-                                    for (int i = 0; i < p._items.Count; i++)
+                                    if (!allValid)
                                     {
-                                        var go = p._items[i];
-
-                                        using (new EditorGUILayout.HorizontalScope())
-                                        {
-
-                                            // Draw issues under the row (skip if item was deleted above)
-                                            if (i >= 0 && i < p._items.Count)
-                                                DrawItemIssuesUI(p._items[i], true);
-
-                                            // Object field (read-only presentation but still shows ping/select, keep editable if you prefer)
-                                            EditorGUI.BeginChangeCheck();
-                                            //var next = (GameObject)EditorGUILayout.ObjectField(go, typeof(GameObject), false);
-                                            var next = DrawItemWithIconField(ref go, 40f);
-                                            // Spacer
-                                            //GUILayout.FlexibleSpace();
-
-                                            // Remove button
-                                            if (GUILayout.Button("X", GUILayout.Width(26)))
-                                            {
-                                                Undo.RecordObject(p, "Remove Item From Pack");
-
-                                                // Remove from pack
-                                                p._items.RemoveAt(i);
-
-                                                // Keep the validation map tidy
-                                                if (go != null && _itemIssues.ContainsKey(go))
-                                                    _itemIssues.Remove(go);
-
-                                                EditorUtility.SetDirty(p);
-                                                AssetDatabase.SaveAssets();
-
-                                                // Adjust index since we removed current item
-                                                i--;
-
-
-                                                p.SyncToAddressables();
-                                                p.SyncToAddressables();
-                                                // Exit GUI so Repaint doesn't clash with changed layout
-                                                Repaint();
-                                                GUIUtility.ExitGUI();
-                                            }
-                                            else if (EditorGUI.EndChangeCheck())
-                                            {
-                                                // If user changed the reference in-place, update and revalidate
-                                                Undo.RecordObject(p, "Change Pack Item");
-                                                p._items[i] = next;
-
-                                                if (next != null)
-                                                    _itemIssues[next] = ContentPackValidator.ValidateItem(next, _rules);
-
-                                                if (go != null && go != next && _itemIssues.ContainsKey(go))
-                                                    _itemIssues.Remove(go);
-
-                                                EditorUtility.SetDirty(p);
-                                                AssetDatabase.SaveAssets();
-                                                Repaint();
-                                            }
-
-                                        }
-
-                                        // Draw issues under the row (skip if item was deleted above)
-                                        if (i >= 0 && i < p._items.Count)
-                                            DrawItemIssuesUI(p._items[i], false);
+                                        EditorUtility.DisplayDialog(
+                                            "Fix Validation Before Publishing",
+                                            $"Errors: {errCount}\nWarnings: {warnCount}",
+                                            "OK");
+                                        return;
                                     }
+
+                                    PublishToModioAsync(p, currentGame);
                                 }
-                                else
-                                {
-                                    EditorGUILayout.LabelField("<no items>", EditorStyles.miniLabel);
-                                }
-
-
-                                // --- Drag & Drop zone always visible for convenience ---
-                                var dropRect = GUILayoutUtility.GetRect(0, 20, GUILayout.ExpandWidth(true));
-                                GUI.Box(dropRect, "Drag prefabs here", _dropZoneStyle);
-                                HandleDragAndDropForPack(p, dropRect);
-
-                                EditorGUI.indentLevel--;
                             }
+                        }
+                        else
+                        {
+                            GUILayout.Label("🔒 Not authorized with Mod.io", GUILayout.Width(190));
+                        }
+
+                        
+                        if (GUILayout.Button("Rename", GUILayout.Width(90)))
+                        {
+                            RenameDialog.Show(
+                                "Rename Content Pack",
+                                $"Enter a new name for '{p.name}':",
+                                p.name,
+                                (newName) =>
+                                {
+                                    var safe = SanitizePackName(newName);
+                                    if (string.IsNullOrWhiteSpace(safe) || safe == p.name)
+                                        return;
+
+                                    if (PackNameExists(safe, out var existingPath))
+                                    {
+                                        EditorUtility.DisplayDialog(
+                                            "Duplicate Name",
+                                            $"A ContentPackDefinition named '{safe}' already exists:\n{existingPath}",
+                                            "OK");
+                                        return;
+                                    }
+
+                                    if (AddressablesGroupExists(safe))
+                                    {
+                                        EditorUtility.DisplayDialog(
+                                            "Duplicate Group",
+                                            $"An Addressables Group named '{safe}' already exists.",
+                                            "OK");
+                                        return;
+                                    }
+
+                                    string assetPath = AssetDatabase.GetAssetPath(p);
+                                    AssetDatabase.RenameAsset(assetPath, safe);
+                                    AssetDatabase.SaveAssets();
+                                });
+                        }
+
+                        if (GUILayout.Button("PING", GUILayout.Width(70)))
+                        {
+                            EditorGUIUtility.PingObject(p);
+                            Selection.activeObject = p;
+                        }
+
+                        if (GUILayout.Button("Delete", GUILayout.Width(70)))
+                        {
+                            DeletePack(p);
+                            continue;
+                        }
                     }
+
+                    // save foldout state
+                    SetPackFoldout(key, expanded);
+
+                    // 🚀 PERFORMANCE FIX
+                    if (!expanded)
+                        continue;
+
+                    GUILayout.Space(10);
+
+                    // ===== PACK METADATA =====
+                    // 🚀 PERFORMANCE FIX
+                    if (!expanded)
+                        continue;
+
+                    GUILayout.Space(10);
+
+// ===== PACK METADATA =====
+                    string metaKey = p.name + "_meta";
+                    if (!_metaFoldouts.ContainsKey(metaKey))
+                        _metaFoldouts[metaKey] = false;
+
+                    _metaFoldouts[metaKey] =
+                        EditorGUILayout.Foldout(_metaFoldouts[metaKey], "Pack Metadata", true);
+
+                    if (_metaFoldouts[metaKey])
+                    {
+                        using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                        {
+                            EditorGUI.indentLevel++;
+
+                            // Summary
+                            EditorGUI.BeginChangeCheck();
+                            EditorGUILayout.LabelField("Summary");
+                            string newSummary =
+                                EditorGUILayout.TextArea(p.summary, GUILayout.MinHeight(40));
+                            if (EditorGUI.EndChangeCheck())
+                            {
+                                Undo.RecordObject(p, "Edit Pack Summary");
+                                p.summary = newSummary;
+                                EditorUtility.SetDirty(p);
+                            }
+
+                            // Screenshot UI
+                            // (paste the rest of your existing screenshot code here)
+
+                            EditorGUI.indentLevel--;
+                        }
+                    }
+
+                    GUILayout.Space(10);
+
+// ===== ITEMS =====
+
+
+                    GUILayout.Space(10);
+
+                    // ===== ITEMS =====
+                    if (p._items != null && p._items.Count > 0)
+                    {
+                        for (int i = 0; i < p._items.Count; i++)
+                        {
+                            var go = p._items[i];
+
+                            using (new EditorGUILayout.HorizontalScope())
+                            {
+                                DrawItemIssuesUI(go, true);
+
+                                var next = DrawItemWithIconField(ref go, 40f);
+
+                                // 👕 CLOTHING CONTROLS
+                                DrawClothingControlsIfNeeded(go);
+
+                                if (GUILayout.Button("X", GUILayout.Width(26)))
+                                {
+                                    Undo.RecordObject(p, "Remove Item From Pack");
+                                    p._items.RemoveAt(i);
+                                    EditorUtility.SetDirty(p);
+                                    AssetDatabase.SaveAssets();
+                                    i--;
+                                    Repaint();
+                                    GUIUtility.ExitGUI();
+                                }
+                                else if (next != go)
+                                {
+                                    Undo.RecordObject(p, "Change Pack Item");
+                                    p._items[i] = next;
+                                    EditorUtility.SetDirty(p);
+                                    AssetDatabase.SaveAssets();
+                                }
+                            }
+
+                            DrawItemIssuesUI(go, false);
+                        }
+                    }
+                    else
+                    {
+                        EditorGUILayout.LabelField("<no items>", EditorStyles.miniLabel);
+                    }
+
+                    GUILayout.Space(8);
+
+                    // ===== DRAG & DROP =====
+                    var dropRect = GUILayoutUtility.GetRect(0, 20, GUILayout.ExpandWidth(true));
+                    GUI.Box(dropRect, "Drag prefabs here", _dropZoneStyle);
+                    HandleDragAndDropForPack(p, dropRect);
                 }
             }
         }
+
 
         private void DrawBuildRow()
         {
@@ -3103,7 +2902,54 @@ private Texture2D TryLoadSteamLibraryImage(long appId, int maxHeight = 64)
         {
             Debug.Log(ContentTools.ModIo.ModIoAuth.CurrentToken);
         }
+        private static bool IsHumanClothing(GameObject prefab)
+        {
+            if (prefab == null) return false;
+            return prefab.name.StartsWith("Human_", System.StringComparison.OrdinalIgnoreCase);
+        }
         
+        private static ClothingClipSettings GetOrAddClothingClipSettings(GameObject prefab)
+        {
+            var settings = prefab.GetComponent<ClothingClipSettings>();
+            if (settings != null)
+                return settings;
+
+            // Add component safely
+            Undo.RecordObject(prefab, "Add Clothing Clip Settings");
+            settings = prefab.AddComponent<ClothingClipSettings>();
+
+            EditorUtility.SetDirty(prefab);
+            PrefabUtility.RecordPrefabInstancePropertyModifications(settings);
+
+            return settings;
+        }
+        private void DrawClothingControlsIfNeeded(GameObject prefab)
+        {
+            if (!IsHumanClothing(prefab))
+                return;
+        
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.LabelField("Clothing Settings", EditorStyles.boldLabel);
+        
+            var settings = GetOrAddClothingClipSettings(prefab);
+        
+            EditorGUI.BeginChangeCheck();
+            var newClipType = (ClothingClipType)EditorGUILayout.EnumPopup(
+                "Clipping Type",
+                settings.clipType
+            );
+        
+            if (EditorGUI.EndChangeCheck())
+            {
+                Undo.RecordObject(settings, "Change Clothing Clipping Type");
+                settings.clipType = newClipType;
+        
+                EditorUtility.SetDirty(settings);
+                PrefabUtility.RecordPrefabInstancePropertyModifications(settings);
+            }
+        
+            EditorGUILayout.EndVertical();
+        }
     }
 }
 #endif
