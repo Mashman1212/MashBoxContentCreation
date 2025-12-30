@@ -37,9 +37,11 @@ MonoBehaviour:
   - Gold
   - Oil Slick
   - Vanilla_Bean
+  - Null
   AllowedPairs:
   - SuperType: Human
     Types:
+    - Body
     - Shirt
     - Pants
     - Socks

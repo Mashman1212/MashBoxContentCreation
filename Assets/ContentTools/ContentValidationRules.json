@@ -7,12 +7,12 @@
     ],
     "Colors": [
         "Black","Blue","Red","Green","Purple","Raw","Chrome","Teal","Tan",
-        "Orange","Yellow","Pink","White","Grey","Brown","Unique","Gold","Oil Slick","Vanilla_Bean"
+        "Orange","Yellow","Pink","White","Grey","Brown","Unique","Gold","Oil Slick","Vanilla_Bean", "Null"
     ],
     "AllowedPairs": [
         {
             "SuperType": "Human",
-            "Types": ["Shirt","Pants","Socks","Shoes","Hat","Gloves"]
+            "Types": ["Body","Shirt","Pants","Socks","Shoes","Hat","Gloves"]
         },
         {
             "SuperType": "Scooter",

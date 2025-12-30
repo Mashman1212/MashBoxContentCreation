@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 9964a7f3248cfe242b246176ac83973f
   m_currentHash:
     serializedVersion: 2
-    Hash: 95c0f1dde21f4d5f52ce6c10f7a9a59e
+    Hash: 00000000000000000000000000000000
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 0
@@ -35,26 +35,26 @@ MonoBehaviour:
   m_CheckForContentUpdateRestrictionsOption: 0
   m_MonoScriptBundleCustomNaming: 
   m_RemoteCatalogBuildPath:
-    m_Id: 3a19cef30519d5a41ad66996061f85d0
+    m_Id: df41d08b4b1bed84796d93bd5d4f54e7
   m_RemoteCatalogLoadPath:
-    m_Id: a8ac224c819bb8e438fb73d3283e9a8b
+    m_Id: b03a8346c7f8904419ab49bce1ce08cc
   m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
   m_BuildAddressablesWithPlayerBuild: 0
-  m_overridePlayerVersion: MapleVanillaFrames
+  m_overridePlayerVersion: Vanilla Clothing
   m_GroupAssets:
-  - {fileID: 11400000, guid: ba0f893308b1d2b4eafed19f9c952e31, type: 2}
   - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
-  - {fileID: 11400000, guid: 21c18b059496cff46a1c9e629f47beeb, type: 2}
   - {fileID: 11400000, guid: 31b656f07eb681a4f8d94fe506754e6e, type: 2}
+  - {fileID: 11400000, guid: 21c18b059496cff46a1c9e629f47beeb, type: 2}
+  - {fileID: 11400000, guid: 3f014c67043b27e49becafef282734e0, type: 2}
+  - {fileID: 11400000, guid: afe694e5f9f4a654f8a1fa7d125746cf, type: 2}
   - {fileID: 11400000, guid: 5a36b0bd3bb8a4340b5a2331e808a8f8, type: 2}
   - {fileID: 11400000, guid: 6c6a6774a29b08a4b853dc22c322816b, type: 2}
-  - {fileID: 11400000, guid: b63d57c1ebc6b1e4ba3484111dc7789d, type: 2}
-  - {fileID: 11400000, guid: afe694e5f9f4a654f8a1fa7d125746cf, type: 2}
-  - {fileID: 11400000, guid: 3f014c67043b27e49becafef282734e0, type: 2}
   - {fileID: 11400000, guid: 696764cb570d8c547aa4c9c9b4c51123, type: 2}
+  - {fileID: 11400000, guid: b63d57c1ebc6b1e4ba3484111dc7789d, type: 2}
   - {fileID: 11400000, guid: 4963f4789742de2439497db4f3824705, type: 2}
+  - {fileID: 11400000, guid: ba0f893308b1d2b4eafed19f9c952e31, type: 2}
   m_BuildSettings:
     m_CompileScriptsInVirtualMode: 0
     m_CleanupStreamingAssetsAfterBuilds: 1
@@ -240,6 +240,10 @@ MonoBehaviour:
     - Christmas
     - Generic
     - Brown
+    - Body
+    - MG
+    - Deez Nuts
+    - Null
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: 80a64dd5444db09479054d5399c86e50, type: 2}
