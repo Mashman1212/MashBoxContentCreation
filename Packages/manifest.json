@@ -39,6 +39,6 @@
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
     "com.unity.modules.xr": "1.0.0",
-    "com.mg.mashbox.sdk": "https://github.com/Mashman1212/mashbox-sdk.git?path=com.mg.mashbox.sdk#v0.1.1"
+     "com.mg.mashbox.sdk": "file:D:/mashbox-sdk/com.mg.mashbox.sdk"
   }
 }

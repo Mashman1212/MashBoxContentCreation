@@ -1,11 +1,10 @@
 {
   "dependencies": {
     "com.mg.mashbox.sdk": {
-      "version": "https://github.com/Mashman1212/mashbox-sdk.git?path=com.mg.mashbox.sdk#v0.1.1",
+      "version": "file:D:/mashbox-sdk/com.mg.mashbox.sdk",
       "depth": 0,
-      "source": "git",
-      "dependencies": {},
-      "hash": "9555b9ba3b40c641154c971f0f239fa1d3b97b0c"
+      "source": "local",
+      "dependencies": {}
     },
     "com.unity.addressables": {
       "version": "1.22.3",

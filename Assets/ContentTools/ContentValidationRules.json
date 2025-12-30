@@ -12,7 +12,7 @@
     "AllowedPairs": [
         {
             "SuperType": "Human",
-            "Types": ["Body","Shirt","Pants","Socks","Shoes","Hat","Gloves"]
+            "Types": ["Bust","Body","Shirt","Pants","Socks","Shoes","Hat","Gloves"]
         },
         {
             "SuperType": "Scooter",
