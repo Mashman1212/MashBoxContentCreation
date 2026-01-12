@@ -17,6 +17,8 @@ MonoBehaviour:
   - Scooter
   - BMX
   - MTB
+  - Drone
+  - Marker
   Colors:
   - Black
   - Blue
@@ -49,6 +51,12 @@ MonoBehaviour:
     - Shoes
     - Hat
     - Gloves
+  - SuperType: Marker
+    Types:
+    - Base
+  - SuperType: Drone
+    Types:
+    - Body
   - SuperType: Scooter
     Types:
     - Deck

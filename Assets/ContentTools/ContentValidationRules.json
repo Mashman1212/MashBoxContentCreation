@@ -3,7 +3,9 @@
         "Human",
         "Scooter",
         "BMX",
-        "MTB"
+        "MTB",
+        "Drone",
+        "Marker"
     ],
     "Colors": [
         "Black","Blue","Red","Green","Purple","Raw","Chrome","Teal","Tan",
@@ -13,6 +15,18 @@
         {
             "SuperType": "Human",
             "Types": ["Bust","Body","Shirt","Pants","Socks","Shoes","Hat","Gloves"]
+        },
+        {
+            "SuperType": "Marker",
+            "Types": [
+                "Base"
+            ]
+        },
+        {
+            "SuperType": "Drone",
+            "Types": [
+                "Body"
+            ]
         },
         {
             "SuperType": "Scooter",
