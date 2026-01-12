@@ -142,6 +142,9 @@ namespace Content_Icon_Capture.Editor
 
                     captureLocation.GetChild(0).localPosition = Vector3.zero;
                     captureLocation.GetChild(0).localRotation = Quaternion.identity;
+   
+                    EncapsulateObjectToBounds(instance, captureLocation);
+                    
                     var entry = FindOffsetFor(prefab.name);
                     if (entry != null)
                     {
@@ -156,8 +159,7 @@ namespace Content_Icon_Capture.Editor
                         captureLocation.GetChild(0).localPosition = posOff;
                         captureLocation.GetChild(0).localRotation = Quaternion.Euler(eulOff);
                     }
-                    
-                    EncapsulateObjectToBounds(instance, captureLocation);
+
                     
                     
                     // Save path: mirror Prefabs -> Icons and append "_Icon"
