@@ -35,15 +35,16 @@ MonoBehaviour:
   m_CheckForContentUpdateRestrictionsOption: 0
   m_MonoScriptBundleCustomNaming: 
   m_RemoteCatalogBuildPath:
-    m_Id: f7f1fa73ab351eb4198d1cc9df0ea197
+    m_Id: 1425cfe734278d74cb6444f0e8977325
   m_RemoteCatalogLoadPath:
-    m_Id: 8acc1f4f6fef49c478b938ba4e76b785
+    m_Id: 46fae943829fd224f9dee8898844344c
   m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
   m_BuildAddressablesWithPlayerBuild: 0
-  m_overridePlayerVersion: Vanilla Markers
+  m_overridePlayerVersion: Vanilla Drone Ammo
   m_GroupAssets:
+  - {fileID: 11400000, guid: 2a2309649da9d3c44bde455ac64b665d, type: 2}
   - {fileID: 11400000, guid: 3f014c67043b27e49becafef282734e0, type: 2}
   - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
   - {fileID: 11400000, guid: 31b656f07eb681a4f8d94fe506754e6e, type: 2}
@@ -52,6 +53,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 21c18b059496cff46a1c9e629f47beeb, type: 2}
   - {fileID: 11400000, guid: ad320ef411a848b43b1b43f620430527, type: 2}
   - {fileID: 11400000, guid: afe694e5f9f4a654f8a1fa7d125746cf, type: 2}
+  - {fileID: 11400000, guid: 92a0cc78c10c4e3429f2000c5ef5aaed, type: 2}
   - {fileID: 11400000, guid: 82953a16c95ff9e48ae0d9406416e4d1, type: 2}
   - {fileID: 11400000, guid: 5a36b0bd3bb8a4340b5a2331e808a8f8, type: 2}
   - {fileID: 11400000, guid: 6c6a6774a29b08a4b853dc22c322816b, type: 2}
@@ -74,12 +76,22 @@ MonoBehaviour:
       m_Values:
       - m_Id: 09d982614f436cd409abb0ae6e65e3b3
         m_Value: ServerData/[BuildTarget]
+      - m_Id: 1425cfe734278d74cb6444f0e8977325
+        m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/Vanilla Drone Ammo
       - m_Id: 1e5509e336543d1458adcf3726e447ab
         m_Value: D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 22c2b88bd9cf2ba4dabb6cc7abbd46fe
         m_Value: Content/[BuildTarget]
       - m_Id: 3a19cef30519d5a41ad66996061f85d0
         m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/MapleVanillaFrames
+      - m_Id: 46fae943829fd224f9dee8898844344c
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
+          Drone Ammo'
+      - m_Id: 4ef6eab2b4f418b4da3072baa6a6da75
+        m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/Vanilla Drones
+      - m_Id: 5230b326905f98e4abc28b837216c9bf
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
+          Drones'
       - m_Id: 5c183db6469a951409ec4be0dc2cf880
         m_Value: file:///D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 654bc31bc64da90439c688e82cafa878
@@ -113,12 +125,22 @@ MonoBehaviour:
       m_Values:
       - m_Id: 09d982614f436cd409abb0ae6e65e3b3
         m_Value: Content/[BuildTarget]
+      - m_Id: 1425cfe734278d74cb6444f0e8977325
+        m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/Vanilla Drone Ammo
       - m_Id: 1e5509e336543d1458adcf3726e447ab
         m_Value: D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 22c2b88bd9cf2ba4dabb6cc7abbd46fe
         m_Value: Content/[BuildTarget]
       - m_Id: 3a19cef30519d5a41ad66996061f85d0
         m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/MapleVanillaFrames
+      - m_Id: 46fae943829fd224f9dee8898844344c
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
+          Drone Ammo'
+      - m_Id: 4ef6eab2b4f418b4da3072baa6a6da75
+        m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/Vanilla Drones
+      - m_Id: 5230b326905f98e4abc28b837216c9bf
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
+          Drones'
       - m_Id: 5c183db6469a951409ec4be0dc2cf880
         m_Value: file:///D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 654bc31bc64da90439c688e82cafa878
@@ -150,6 +172,9 @@ MonoBehaviour:
     - m_Id: 09d982614f436cd409abb0ae6e65e3b3
       m_Name: Remote.BuildPath
       m_InlineUsage: 0
+    - m_Id: 1425cfe734278d74cb6444f0e8977325
+      m_Name: Pack_Vanilla Drone Ammo_BuildPath
+      m_InlineUsage: 0
     - m_Id: 1e5509e336543d1458adcf3726e447ab
       m_Name: Pack_Shirts_BuildPath
       m_InlineUsage: 0
@@ -158,6 +183,15 @@ MonoBehaviour:
       m_InlineUsage: 0
     - m_Id: 3a19cef30519d5a41ad66996061f85d0
       m_Name: Pack_MapleVanillaFrames_BuildPath
+      m_InlineUsage: 0
+    - m_Id: 46fae943829fd224f9dee8898844344c
+      m_Name: Pack_Vanilla Drone Ammo_LoadPath
+      m_InlineUsage: 0
+    - m_Id: 4ef6eab2b4f418b4da3072baa6a6da75
+      m_Name: Pack_Vanilla Drones_BuildPath
+      m_InlineUsage: 0
+    - m_Id: 5230b326905f98e4abc28b837216c9bf
+      m_Name: Pack_Vanilla Drones_LoadPath
       m_InlineUsage: 0
     - m_Id: 5c183db6469a951409ec4be0dc2cf880
       m_Name: Pack_Shirts_LoadPath
@@ -311,6 +345,12 @@ MonoBehaviour:
     - Race
     - MashTek
     - StreetHawkX
+    - Ammo
+    - MaskTek
+    - Football
+    - Puck
+    - Missle
+    - Big Red
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: 80a64dd5444db09479054d5399c86e50, type: 2}
