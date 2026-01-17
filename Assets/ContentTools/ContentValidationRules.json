@@ -14,7 +14,7 @@
     "AllowedPairs": [
         {
             "SuperType": "Human",
-            "Types": ["Bust","Body","Shirt","Pants","Socks","Shoes","Hat","Gloves"]
+            "Types": ["Bust","Body","Shirt","Pants","Socks","Shoes","Hat","Gloves","Eyewear"]
         },
         {
             "SuperType": "Marker",

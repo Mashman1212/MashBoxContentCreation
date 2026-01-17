@@ -4681,8 +4681,8 @@
     "m_ObjectId": "04f5ab9ccf614b12a66bd952dfe9fb6f",
     "m_Title": "Sticker Normal Map Base Exclusion & Replacement",
     "m_Position": {
-        "x": 101.60031127929688,
-        "y": 1063.1998291015625
+        "x": 101.60009765625,
+        "y": 1063.199951171875
     }
 }
 
@@ -7359,7 +7359,7 @@
     "m_Title": "Alpha Mask Metal Multiply",
     "m_Position": {
         "x": -1979.2001953125,
-        "y": 447.2000427246094
+        "y": 447.1999816894531
     }
 }
 
@@ -7417,8 +7417,8 @@
     "m_ObjectId": "2a0c0f96009a4c6ebfd0912344c0780a",
     "m_Title": "Normal Map",
     "m_Position": {
-        "x": -1043.9996337890625,
-        "y": 304.00006103515627
+        "x": -1043.999755859375,
+        "y": 303.9999084472656
     }
 }
 
@@ -13351,7 +13351,7 @@
     "m_ObjectId": "7086e679e23549fc91761724d5d79a88",
     "m_Title": "Sticker Map",
     "m_Position": {
-        "x": -2139.199462890625,
+        "x": -2139.199951171875,
         "y": -504.79998779296877
     }
 }
@@ -15569,8 +15569,8 @@
     "m_ObjectId": "87cfb6083eaa4faf8234068d6102ceb1",
     "m_Title": "Sticker Metallic Override",
     "m_Position": {
-        "x": 1994.4000244140625,
-        "y": 392.0000305175781
+        "x": 1994.400634765625,
+        "y": 391.9999084472656
     }
 }
 
@@ -15724,8 +15724,8 @@
     "m_ObjectId": "89928fec505c442a95f3cdd521e5ab41",
     "m_Title": "Emissive Map",
     "m_Position": {
-        "x": -3012.0,
-        "y": 1219.9998779296875
+        "x": -3012.000244140625,
+        "y": 1220.0
     }
 }
 
@@ -15759,8 +15759,8 @@
     "m_ObjectId": "89dc1e5fcb9b495284d9603b415ee5c3",
     "m_Title": "Exclude Stickers from Coat Mask Influence",
     "m_Position": {
-        "x": 544.8001708984375,
-        "y": 2499.2001953125
+        "x": 544.80029296875,
+        "y": 2499.199951171875
     }
 }
 
@@ -17261,7 +17261,7 @@
     "m_ObjectId": "967cfe2ccaf2431e97a52d295bdd5d75",
     "m_Title": "Coat Mask",
     "m_Position": {
-        "x": -2626.400390625,
+        "x": -2626.400146484375,
         "y": 2681.60009765625
     }
 }
@@ -17272,8 +17272,8 @@
     "m_ObjectId": "969889577b40454b87fb8a9197f5e075",
     "m_Title": "Base Color",
     "m_Position": {
-        "x": -3311.19970703125,
-        "y": -760.800048828125
+        "x": -3311.199951171875,
+        "y": -760.7999877929688
     }
 }
 
@@ -19844,7 +19844,7 @@
     "m_Title": "Base Map + Stickers",
     "m_Position": {
         "x": 3447.999755859375,
-        "y": -82.39999389648438
+        "y": -82.39997863769531
     }
 }
 
@@ -19878,8 +19878,8 @@
     "m_ObjectId": "b84a6da19ca64e0db4344de44bf010f2",
     "m_Title": "Sticker RGB Blend",
     "m_Position": {
-        "x": 2044.7999267578125,
-        "y": 39.19997024536133
+        "x": 2044.800048828125,
+        "y": 39.199981689453128
     }
 }
 
@@ -20521,7 +20521,7 @@
         "m_Guid": ""
     },
     "isMainTexture": false,
-    "useTilingAndOffset": false,
+    "useTilingAndOffset": true,
     "m_Modifiable": true,
     "m_DefaultType": 3
 }
@@ -21055,7 +21055,7 @@
     "m_ObjectId": "c524100a41e04218987d43d06daa9d74",
     "m_Title": "Oil Slick Base Map Alpha Mask",
     "m_Position": {
-        "x": 2794.39990234375,
+        "x": 2794.399658203125,
         "y": -367.20001220703127
     }
 }
@@ -21180,8 +21180,8 @@
     "m_ObjectId": "c5e8f9ea86ab4e88b05b48db987af2ce",
     "m_Title": "Detail Map",
     "m_Position": {
-        "x": -3169.599609375,
-        "y": 2008.0
+        "x": -3169.60009765625,
+        "y": 2008.000244140625
     }
 }
 
@@ -21275,8 +21275,8 @@
     "m_ObjectId": "c7ea55890c754b198717965395ca1f8c",
     "m_Title": "Sticker Roughness Override",
     "m_Position": {
-        "x": 1286.400146484375,
-        "y": 400.0000305175781
+        "x": 1286.39990234375,
+        "y": 399.9999084472656
     }
 }
 
@@ -21705,7 +21705,7 @@
     "m_ObjectId": "ccba6789738944708416465b7c65343c",
     "m_Title": "Oilslick Sticker BaseMap Alpha Ovveride",
     "m_Position": {
-        "x": 2105.599853515625,
+        "x": 2105.599365234375,
         "y": -272.79998779296877
     }
 }
@@ -22517,8 +22517,8 @@
     "m_ObjectId": "d4d669678dd945fb8670a24569c2d3b4",
     "m_Title": "Label MaskMap Remapping",
     "m_Position": {
-        "x": -5133.599609375,
-        "y": 445.6000061035156
+        "x": -5133.60009765625,
+        "y": 445.5999450683594
     }
 }
 
@@ -22804,8 +22804,8 @@
     "m_ObjectId": "d79a47de33a94bb3b35010a3ae6d077b",
     "m_Title": "Sticker Emission",
     "m_Position": {
-        "x": 2419.2001953125,
-        "y": 22.400009155273439
+        "x": 2419.199951171875,
+        "y": 22.399993896484376
     }
 }
 
