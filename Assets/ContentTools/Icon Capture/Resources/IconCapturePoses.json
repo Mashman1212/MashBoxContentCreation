@@ -1,0 +1,19 @@
+{
+  "entries": [
+    {
+      "match": "Human_Gloves_*",
+      "bones": [
+        {
+          "bone": "mixamorig:LeftForeArm",
+          "euler": [0.089, -90, 0.089],
+          "position": [0.53, 0, 0.247]
+        },
+        {
+          "bone": "mixamorig:RightForeArm",
+          "euler": [-141.72, 89.929, 0.1139984],
+          "position": [-0.031, 0.01, 0.251]
+        }
+      ]
+    }
+  ]
+}

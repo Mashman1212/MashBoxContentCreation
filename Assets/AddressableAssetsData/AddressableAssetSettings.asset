@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 9964a7f3248cfe242b246176ac83973f
   m_currentHash:
     serializedVersion: 2
-    Hash: 00000000000000000000000000000000
+    Hash: 1e8bd93988314e722ab2c869d1cc119f
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 0
@@ -35,28 +35,25 @@ MonoBehaviour:
   m_CheckForContentUpdateRestrictionsOption: 0
   m_MonoScriptBundleCustomNaming: 
   m_RemoteCatalogBuildPath:
-    m_Id: fb5de4d796538704b88ab04770cf3204
+    m_Id: 2a522774e1da6bb4da3f04358a0eefdd
   m_RemoteCatalogLoadPath:
-    m_Id: e1ad403535569d94caa9eef6d88a3805
+    m_Id: f7c25d20bc616c643b004704ae30fad3
   m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
   m_BuildAddressablesWithPlayerBuild: 0
-  m_overridePlayerVersion: Vanilla Hats
+  m_overridePlayerVersion: Vanilla Gloves
   m_GroupAssets:
   - {fileID: 11400000, guid: 2a2309649da9d3c44bde455ac64b665d, type: 2}
   - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
   - {fileID: 11400000, guid: ebcd24adb13659b478a6925856397942, type: 2}
   - {fileID: 11400000, guid: 806c5f74a15bc67439ba4a543b3b032e, type: 2}
-  - {fileID: 11400000, guid: afe694e5f9f4a654f8a1fa7d125746cf, type: 2}
   - {fileID: 11400000, guid: 21c18b059496cff46a1c9e629f47beeb, type: 2}
   - {fileID: 11400000, guid: 1cd1f5a73a5fb4445a1bb6ff73e6de6a, type: 2}
   - {fileID: 11400000, guid: ad320ef411a848b43b1b43f620430527, type: 2}
-  - {fileID: 11400000, guid: 696764cb570d8c547aa4c9c9b4c51123, type: 2}
   - {fileID: 11400000, guid: 18931dd91f3f462438d71a27c4906d6d, type: 2}
   - {fileID: 11400000, guid: 0af30def3b9d02940805c636b227421d, type: 2}
   - {fileID: 11400000, guid: 92a0cc78c10c4e3429f2000c5ef5aaed, type: 2}
-  - {fileID: 11400000, guid: 31b656f07eb681a4f8d94fe506754e6e, type: 2}
   - {fileID: 11400000, guid: 82953a16c95ff9e48ae0d9406416e4d1, type: 2}
   - {fileID: 11400000, guid: 5a36b0bd3bb8a4340b5a2331e808a8f8, type: 2}
   - {fileID: 11400000, guid: 906517009755d2e489549844f9530d3c, type: 2}
@@ -65,10 +62,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 1ed78f931b2d6dd4d87c84cbb0010f72, type: 2}
   - {fileID: 11400000, guid: b63d57c1ebc6b1e4ba3484111dc7789d, type: 2}
   - {fileID: 11400000, guid: 0ee79652430fd874a94c0ab2cdce4219, type: 2}
-  - {fileID: 11400000, guid: ba0f893308b1d2b4eafed19f9c952e31, type: 2}
   - {fileID: 11400000, guid: 9f5f0604d8f3df74ea6e9b0ad73a8701, type: 2}
   - {fileID: 11400000, guid: ce9389d3e66218c489bb6019b11fe723, type: 2}
-  - {fileID: 11400000, guid: 3f014c67043b27e49becafef282734e0, type: 2}
   - {fileID: 11400000, guid: 09f201e5d50af6d4fa13ce5643ff55b0, type: 2}
   - {fileID: 11400000, guid: 4963f4789742de2439497db4f3824705, type: 2}
   m_BuildSettings:
@@ -430,6 +425,7 @@ MonoBehaviour:
     - Eyewear
     - Glassless
     - Chad
+    - ScootX
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: 80a64dd5444db09479054d5399c86e50, type: 2}

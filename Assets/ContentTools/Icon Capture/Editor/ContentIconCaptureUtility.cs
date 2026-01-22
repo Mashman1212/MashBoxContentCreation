@@ -143,6 +143,13 @@ namespace Content_Icon_Capture.Editor
                     captureLocation.GetChild(0).localPosition = Vector3.zero;
                     captureLocation.GetChild(0).localRotation = Quaternion.identity;
    
+                    // Apply capture pose BEFORE bounds calculation
+                    var pose = FindPoseFor(prefab.name);
+                    if (pose != null)
+                    {
+                        ApplyPose(instance, pose);
+                    }
+                    
                     EncapsulateObjectToBounds(instance, captureLocation);
                     
                     var entry = FindOffsetFor(prefab.name);
@@ -423,6 +430,13 @@ namespace Content_Icon_Capture.Editor
         {
             public OffsetEntry[] entries = System.Array.Empty<OffsetEntry>();
         }
+        [System.Serializable]
+        private class PoseConfig
+        {
+            public PoseEntry[] entries = System.Array.Empty<PoseEntry>();
+        }
+
+        private static PoseConfig _cachedPoses;
 
         [System.Serializable]
         private class OffsetEntry
@@ -434,6 +448,27 @@ namespace Content_Icon_Capture.Editor
             public float[] position = new float[3]; // localPosition offset to apply after placement/encapsulation
             public float[] euler = new float[3]; // localRotation offset (Euler degrees)
             public float[] scale = null; // optional localScale override (3 floats) — optional nicety
+        }
+        
+        [System.Serializable]
+        private class PoseEntry
+        {
+            // Same wildcard system
+            public string match = "*";
+
+            // Bone name → pose
+            public BonePose[] bones;
+        }
+
+        [System.Serializable]
+        private class BonePose
+        {
+            // Exact Transform.name in hierarchy
+            public string bone;
+
+            // Optional
+            public float[] position; // [x,y,z]
+            public float[] euler;    // [x,y,z]
         }
 
         private static OffsetConfig _cachedOffsets;
@@ -487,6 +522,54 @@ namespace Content_Icon_Capture.Editor
     return new OffsetConfig();
 #endif
         }
+        
+        private static PoseConfig LoadPoseConfig()
+        {
+#if UNITY_EDITOR
+            //if (_cachedPoses != null) return _cachedPoses;
+
+            TextAsset ta = null;
+
+            // 1) Editor Default Resources
+            var edr = UnityEditor.EditorGUIUtility.Load("IconCapturePoses.json") as TextAsset;
+            if (edr != null) ta = edr;
+
+            // 2) Resources/IconCapturePoses
+            if (ta == null) ta = Resources.Load<TextAsset>("IconCapturePoses");
+
+            // 3) Fallback: search anywhere
+            if (ta == null)
+            {
+                foreach (var guid in UnityEditor.AssetDatabase.FindAssets("IconCapturePoses t:TextAsset"))
+                {
+                    var p = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
+                    var maybe = UnityEditor.AssetDatabase.LoadAssetAtPath<TextAsset>(p);
+                    if (maybe != null && p.EndsWith(".json", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        ta = maybe;
+                        break;
+                    }
+                }
+            }
+
+            if (ta == null)
+                return _cachedPoses = new PoseConfig(); // empty
+
+            try
+            {
+                var cfg = JsonUtility.FromJson<PoseConfig>(ta.text);
+                return _cachedPoses = (cfg ?? new PoseConfig());
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[ContentIconCaptureUtility] Failed to parse IconCapturePoses.json: {ex.Message}");
+                return _cachedPoses = new PoseConfig();
+            }
+#else
+    return new PoseConfig();
+#endif
+        }
+
 
 // Simple wildcard match (*) → regex, case-insensitive
         private static bool WildcardMatch(string input, string pattern)
@@ -512,6 +595,93 @@ namespace Content_Icon_Capture.Editor
             return null;
         }
 
+        private static PoseEntry FindPoseFor(string prefabName)
+        {
+            var cfg = LoadPoseConfig();
+
+            if (cfg == null)
+            {
+                Debug.LogWarning($"[IconCapture][Pose] No PoseConfig loaded for '{prefabName}'.");
+                return null;
+            }
+
+            if (cfg.entries == null || cfg.entries.Length == 0)
+            {
+                Debug.Log($"[IconCapture][Pose] PoseConfig loaded but contains no entries. Prefab: '{prefabName}'.");
+                return null;
+            }
+
+            Debug.Log($"[IconCapture][Pose] Searching pose for '{prefabName}' ({cfg.entries.Length} entries)");
+
+            // First match wins (same behavior as offsets)
+            foreach (var e in cfg.entries)
+            {
+                if (e == null)
+                {
+                    Debug.LogWarning("[IconCapture][Pose] Null PoseEntry encountered, skipping.");
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(e.match))
+                {
+                    Debug.LogWarning("[IconCapture][Pose] PoseEntry has empty match pattern, skipping.");
+                    continue;
+                }
+
+                bool matched = WildcardMatch(prefabName, e.match);
+
+                Debug.Log(
+                    $"[IconCapture][Pose]   Test match '{e.match}' → {(matched ? "MATCH" : "no")}"
+                );
+
+                if (matched)
+                {
+                    int boneCount = e.bones != null ? e.bones.Length : 0;
+                    Debug.Log(
+                        $"[IconCapture][Pose] ✔ Using pose '{e.match}' for '{prefabName}' ({boneCount} bones)"
+                    );
+                    return e;
+                }
+            }
+
+            Debug.Log($"[IconCapture][Pose] ✖ No pose matched for '{prefabName}'.");
+            return null;
+        }
+
+        private static void ApplyPose(GameObject root, PoseEntry pose)
+        {
+            if (!root || pose?.bones == null) return;
+
+            foreach (var b in pose.bones)
+            {
+                if (string.IsNullOrEmpty(b.bone)) continue;
+
+                var t = FindChildRecursive(root.transform, b.bone);
+                if (!t) continue;
+
+                if (b.position != null && b.position.Length >= 3)
+                    t.localPosition = V3(b.position, t.localPosition);
+
+                if (b.euler != null && b.euler.Length >= 3)
+                    t.localRotation = Quaternion.Euler(V3(b.euler, Vector3.zero));
+            }
+
+            // Make sure skinned meshes update before BakeMesh()
+            Physics.SyncTransforms();
+        }
+        private static Transform FindChildRecursive(Transform root, string name)
+        {
+            if (root.name == name) return root;
+
+            for (int i = 0; i < root.childCount; i++)
+            {
+                var found = FindChildRecursive(root.GetChild(i), name);
+                if (found) return found;
+            }
+
+            return null;
+        }
+        
         private static Vector3 V3(float[] arr, Vector3 fallback)
         {
             if (arr == null || arr.Length < 3) return fallback;
