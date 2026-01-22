@@ -14,6 +14,51 @@
           "position": [-0.031, 0.01, 0.251]
         }
       ]
+    },
+    {
+      "match": "Human_Shoes_*",
+      "bones": [
+        {
+          "bone": "mixamorig:LeftLeg",
+          "euler": [0.00, -81.536, 0.089],
+          "position": [0.0, -0.4174766, 0.0]
+        },
+        {
+          "bone": "mixamorig:RightLeg",
+          "euler": [-0.64, -63.572, 2.605],
+          "position": [0.0, -0.425, 0.0]
+        }
+      ]
+    },
+    {
+      "match": "Human_Shirt_*",
+      "bones": [
+        {
+          "bone": "mixamorig:LeftShoulder",
+          "euler": [0.00, 0.0, 10.781]
+        },
+        {
+          "bone": "mixamorig:LeftArm",
+          "euler": [0.0, 0.0, 45]
+        },
+        {
+          "bone": "mixamorig:LeftForeArm",
+          "euler": [0.0, 25.604, 0.0]
+        },
+        {
+          "bone": "mixamorig:RightShoulder",
+          "euler": [0.00, 0.0, -10.781]
+        },
+        {
+          "bone": "mixamorig:RightArm",
+          "euler": [0.0, 0.0, -45]
+        },
+        {
+          "bone": "mixamorig:RightForeArm",
+          "euler": [0.0, -25.604, 0.0]
+        }
+      ]
     }
+
   ]
 }

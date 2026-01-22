@@ -165,6 +165,13 @@ namespace Content_Icon_Capture.Editor
 
                         captureLocation.GetChild(0).localPosition = posOff;
                         captureLocation.GetChild(0).localRotation = Quaternion.Euler(eulOff);
+                        
+                        // 4) 👇 POST-BOUNDS SCALE (this is the new power)
+                        if (entry.postScale != null && entry.postScale.Length >= 3)
+                        {
+                            captureLocation.GetChild(0).localScale =
+                                Vector3.Scale(captureLocation.GetChild(0).localScale, V3(entry.postScale, Vector3.one));
+                        }
                     }
 
                     
@@ -448,6 +455,7 @@ namespace Content_Icon_Capture.Editor
             public float[] position = new float[3]; // localPosition offset to apply after placement/encapsulation
             public float[] euler = new float[3]; // localRotation offset (Euler degrees)
             public float[] scale = null; // optional localScale override (3 floats) — optional nicety
+            public float[] postScale = null;    // 👈 NEW (applied AFTER bounds)
         }
         
         [System.Serializable]
