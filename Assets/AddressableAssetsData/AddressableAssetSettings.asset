@@ -35,14 +35,14 @@ MonoBehaviour:
   m_CheckForContentUpdateRestrictionsOption: 0
   m_MonoScriptBundleCustomNaming: 
   m_RemoteCatalogBuildPath:
-    m_Id: 051f7273fff947d47b837bd732850ab4
+    m_Id: 177dd9910560e6946a51e25ffd1a09d1
   m_RemoteCatalogLoadPath:
-    m_Id: dc051c1cbd1d04241ba6a9265b7ab8b6
+    m_Id: 785b4b4d33145bb4eabe57ddff50b444
   m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
   m_BuildAddressablesWithPlayerBuild: 0
-  m_overridePlayerVersion: Vanilla Socks
+  m_overridePlayerVersion: MyCoolBarsPack
   m_GroupAssets:
   - {fileID: 11400000, guid: 2a2309649da9d3c44bde455ac64b665d, type: 2}
   - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
@@ -85,6 +85,9 @@ MonoBehaviour:
         m_Value: ServerData/[BuildTarget]
       - m_Id: 1425cfe734278d74cb6444f0e8977325
         m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/Vanilla Drone Ammo
+      - m_Id: 177dd9910560e6946a51e25ffd1a09d1
+        m_Value: c:/program files (x86)/steam/steamapps/common/BMX Streets/BMX Streets_Data/StreamingAssets/Addressables/Customization/Local
+          Custom/MyCoolBarsPack
       - m_Id: 1e5509e336543d1458adcf3726e447ab
         m_Value: D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 22c2b88bd9cf2ba4dabb6cc7abbd46fe
@@ -108,6 +111,8 @@ MonoBehaviour:
           Eyewear'
       - m_Id: 654bc31bc64da90439c688e82cafa878
         m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
+      - m_Id: 785b4b4d33145bb4eabe57ddff50b444
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/MyCoolBarsPack'
       - m_Id: 8291b8e32748dc840a1b3ca052902b92
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
           Pants'
@@ -154,6 +159,9 @@ MonoBehaviour:
         m_Value: Content/[BuildTarget]
       - m_Id: 1425cfe734278d74cb6444f0e8977325
         m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/Vanilla Drone Ammo
+      - m_Id: 177dd9910560e6946a51e25ffd1a09d1
+        m_Value: c:/program files (x86)/steam/steamapps/common/BMX Streets/BMX Streets_Data/StreamingAssets/Addressables/Customization/Local
+          Custom/MyCoolBarsPack
       - m_Id: 1e5509e336543d1458adcf3726e447ab
         m_Value: D:/BMXStreets_CC/ServerData/Shirts
       - m_Id: 22c2b88bd9cf2ba4dabb6cc7abbd46fe
@@ -177,6 +185,8 @@ MonoBehaviour:
           Eyewear'
       - m_Id: 654bc31bc64da90439c688e82cafa878
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
+      - m_Id: 785b4b4d33145bb4eabe57ddff50b444
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/MyCoolBarsPack'
       - m_Id: 8291b8e32748dc840a1b3ca052902b92
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
           Pants'
@@ -223,6 +233,9 @@ MonoBehaviour:
     - m_Id: 1425cfe734278d74cb6444f0e8977325
       m_Name: Pack_Vanilla Drone Ammo_BuildPath
       m_InlineUsage: 0
+    - m_Id: 177dd9910560e6946a51e25ffd1a09d1
+      m_Name: Pack_MyCoolBarsPack_BuildPath
+      m_InlineUsage: 0
     - m_Id: 1e5509e336543d1458adcf3726e447ab
       m_Name: Pack_Shirts_BuildPath
       m_InlineUsage: 0
@@ -252,6 +265,9 @@ MonoBehaviour:
       m_InlineUsage: 0
     - m_Id: 654bc31bc64da90439c688e82cafa878
       m_Name: Local.LoadPath
+      m_InlineUsage: 0
+    - m_Id: 785b4b4d33145bb4eabe57ddff50b444
+      m_Name: Pack_MyCoolBarsPack_LoadPath
       m_InlineUsage: 0
     - m_Id: 8291b8e32748dc840a1b3ca052902b92
       m_Name: Pack_Vanilla Pants_LoadPath
@@ -446,6 +462,7 @@ MonoBehaviour:
     - ScootX
     - Super Dupers
     - Gold
+    - Super Duper
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: 80a64dd5444db09479054d5399c86e50, type: 2}

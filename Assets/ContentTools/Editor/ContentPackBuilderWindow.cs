@@ -59,7 +59,7 @@ namespace ContentTools.Editor
             },
         };
 
-        private const string STREAMING_SUBPATH = "Addressables/Customization";//"Local Custom"; // under StreamingAssets
+        private const string STREAMING_SUBPATH = "Addressables/Customization/Local Custom"; // under StreamingAssets
 
 // Cache of detections (AppID -> install path)
         private System.Collections.Generic.Dictionary<long, string> _steamInstalls =
