@@ -80,7 +80,6 @@ crashlytics-build.properties
 /[Aa]ssets/[Ss]treamingAssets/aa/*
 Assets/AddressableAssetsData/AddressableAssetSettings.asset
 
-/[Pa]ckages
 
 /[Aa]ssets/MashBox
 /[Aa]ssets/MashBox.meta
@@ -100,4 +99,3 @@ Assets/AddressableAssetsData/AddressableAssetSettings.asset
 /[Aa]ssets/RoweModMB
 /[Aa]ssets/RoweModMB.meta
 
-/Packages
