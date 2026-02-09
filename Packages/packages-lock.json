@@ -136,12 +136,6 @@
         "com.unity.modules.jsonserialize": "1.0.0"
       }
     },
-    "com.unity.render-pipelines.gamecore": {
-      "version": "file:../Assets/Content/com.unity.render-pipelines.gamecore-1.4.0.tgz",
-      "depth": 0,
-      "source": "local-tarball",
-      "dependencies": {}
-    },
     "com.unity.render-pipelines.high-definition": {
       "version": "14.0.12",
       "depth": 0,
@@ -166,12 +160,6 @@
       "dependencies": {
         "com.unity.render-pipelines.core": "14.0.12"
       }
-    },
-    "com.unity.render-pipelines.ps5": {
-      "version": "file:../Assets/Content/com.unity.render-pipelines.ps5-1.10.2.tgz",
-      "depth": 0,
-      "source": "local-tarball",
-      "dependencies": {}
     },
     "com.unity.scriptablebuildpipeline": {
       "version": "1.21.25",

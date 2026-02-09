@@ -52,6 +52,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 1cd1f5a73a5fb4445a1bb6ff73e6de6a, type: 2}
   - {fileID: 11400000, guid: ad320ef411a848b43b1b43f620430527, type: 2}
   - {fileID: 11400000, guid: 18931dd91f3f462438d71a27c4906d6d, type: 2}
+  - {fileID: 11400000, guid: 2d93cf551a53a4e4989b8d3cc177eda6, type: 2}
   - {fileID: 11400000, guid: 0af30def3b9d02940805c636b227421d, type: 2}
   - {fileID: 11400000, guid: 92a0cc78c10c4e3429f2000c5ef5aaed, type: 2}
   - {fileID: 11400000, guid: 82953a16c95ff9e48ae0d9406416e4d1, type: 2}
@@ -62,6 +63,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 1ed78f931b2d6dd4d87c84cbb0010f72, type: 2}
   - {fileID: 11400000, guid: b63d57c1ebc6b1e4ba3484111dc7789d, type: 2}
   - {fileID: 11400000, guid: 0ee79652430fd874a94c0ab2cdce4219, type: 2}
+  - {fileID: 11400000, guid: 3a7651e75a30ac742bf46995d000439d, type: 2}
   - {fileID: 11400000, guid: 9f5f0604d8f3df74ea6e9b0ad73a8701, type: 2}
   - {fileID: 11400000, guid: ce9389d3e66218c489bb6019b11fe723, type: 2}
   - {fileID: 11400000, guid: 09f201e5d50af6d4fa13ce5643ff55b0, type: 2}
@@ -442,6 +444,8 @@ MonoBehaviour:
     - Glassless
     - Chad
     - ScootX
+    - Super Dupers
+    - Gold
   m_SchemaTemplates: []
   m_GroupTemplateObjects:
   - {fileID: 11400000, guid: 80a64dd5444db09479054d5399c86e50, type: 2}
