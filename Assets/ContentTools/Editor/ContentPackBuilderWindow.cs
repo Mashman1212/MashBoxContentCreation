@@ -59,7 +59,7 @@ namespace ContentTools.Editor
             },
         };
 
-        private const string STREAMING_SUBPATH = "Addressables/Customization"; // under StreamingAssets
+        private const string STREAMING_SUBPATH = "Addressables/Customization/Local Custom"; // under StreamingAssets
 
 // Cache of detections (AppID -> install path)
         private System.Collections.Generic.Dictionary<long, string> _steamInstalls =
@@ -580,11 +580,7 @@ namespace ContentTools.Editor
                                             }
                                             else
                                             {
-                                                var final = StreamingAssetsResolver.AppendSubfolder(sa,
-                                                    STREAMING_SUBPATH);
-                                                _buildLocation = final;
-                                                _lastChosenAppId = g.SteamAppId;
-                                                _codeInput = "";
+                                                var final = StreamingAssetsResolver.AppendSubfolder(sa, STREAMING_SUBPATH); _buildLocation = final; _lastChosenAppId = g.SteamAppId; _codeInput = "";
                                                 EditorPrefs.SetString("ModIo.ApiBase", g.ModIoApiBase);
                                                 EditorPrefs.SetString("ModIo.CurrentGame", g.DisplayName);
                                                 _statusMsg = ContentTools.ModIo.ModIoAuth.IsAuthorizedForCurrentGame()
@@ -643,8 +639,7 @@ namespace ContentTools.Editor
                                                 }
                                                 else
                                                 {
-                                                    var final = StreamingAssetsResolver.AppendSubfolder(sa,
-                                                        STREAMING_SUBPATH);
+                                                    var final = StreamingAssetsResolver.AppendSubfolder(sa, STREAMING_SUBPATH); 
                                                     _buildLocation = final;
                                                     _lastChosenAppId = g.SteamAppId;
                                                     EditorPrefs.SetString("ModIo.ApiBase", g.ModIoApiBase);
