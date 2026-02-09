@@ -819,6 +819,8 @@ PlayerSettings:
   webGLMemoryGeometricGrowthCap: 96
   webGLPowerPreference: 2
   scriptingDefineSymbols:
+    GameCoreScarlett: MAGICACLOTH2
+    PS5: MAGICACLOTH2
     Standalone: MAGICACLOTH2
   additionalCompilerArguments: {}
   platformArchitecture: {}

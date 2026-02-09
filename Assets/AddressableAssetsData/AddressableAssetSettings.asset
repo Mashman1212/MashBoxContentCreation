@@ -15,7 +15,7 @@ MonoBehaviour:
   m_DefaultGroup: 9964a7f3248cfe242b246176ac83973f
   m_currentHash:
     serializedVersion: 2
-    Hash: 1e8bd93988314e722ab2c869d1cc119f
+    Hash: 00000000000000000000000000000000
   m_OptimizeCatalogSize: 0
   m_BuildRemoteCatalog: 1
   m_BundleLocalCatalog: 0
@@ -35,14 +35,14 @@ MonoBehaviour:
   m_CheckForContentUpdateRestrictionsOption: 0
   m_MonoScriptBundleCustomNaming: 
   m_RemoteCatalogBuildPath:
-    m_Id: 2a522774e1da6bb4da3f04358a0eefdd
+    m_Id: 051f7273fff947d47b837bd732850ab4
   m_RemoteCatalogLoadPath:
-    m_Id: f7c25d20bc616c643b004704ae30fad3
+    m_Id: dc051c1cbd1d04241ba6a9265b7ab8b6
   m_ContentStateBuildPathProfileVariableName: <default settings path>
   m_CustomContentStateBuildPath: 
   m_ContentStateBuildPath: 
   m_BuildAddressablesWithPlayerBuild: 0
-  m_overridePlayerVersion: Vanilla Gloves
+  m_overridePlayerVersion: Vanilla Socks
   m_GroupAssets:
   - {fileID: 11400000, guid: 2a2309649da9d3c44bde455ac64b665d, type: 2}
   - {fileID: 11400000, guid: 369ff2c71eb6a754985ac42ba7c211c9, type: 2}
@@ -101,6 +101,9 @@ MonoBehaviour:
           Drones'
       - m_Id: 5c183db6469a951409ec4be0dc2cf880
         m_Value: file:///D:/BMXStreets_CC/ServerData/Shirts
+      - m_Id: 612011e4f0d72c248ba19926519ced2e
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
+          Eyewear'
       - m_Id: 654bc31bc64da90439c688e82cafa878
         m_Value: '{UnityEngine.AddressableAssets.Addressables.RuntimePath}/[BuildTarget]'
       - m_Id: 8291b8e32748dc840a1b3ca052902b92
@@ -123,6 +126,8 @@ MonoBehaviour:
           Socks'
       - m_Id: df41d08b4b1bed84796d93bd5d4f54e7
         m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/Vanilla Clothing
+      - m_Id: e03bb56726ce1864e847bf618456192b
+        m_Value: D:/BMXStreets_CC/ServerData/GameCoreScarlett/Vanilla Eyewear
       - m_Id: e1ad403535569d94caa9eef6d88a3805
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
           Hats'
@@ -165,6 +170,9 @@ MonoBehaviour:
           Drones'
       - m_Id: 5c183db6469a951409ec4be0dc2cf880
         m_Value: file:///D:/BMXStreets_CC/ServerData/Shirts
+      - m_Id: 612011e4f0d72c248ba19926519ced2e
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
+          Eyewear'
       - m_Id: 654bc31bc64da90439c688e82cafa878
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
       - m_Id: 8291b8e32748dc840a1b3ca052902b92
@@ -187,6 +195,8 @@ MonoBehaviour:
           Socks'
       - m_Id: df41d08b4b1bed84796d93bd5d4f54e7
         m_Value: D:/BMXStreets_CC/ServerData/StandaloneWindows64/Vanilla Clothing
+      - m_Id: e03bb56726ce1864e847bf618456192b
+        m_Value: D:/BMXStreets_CC/ServerData/GameCoreScarlett/Vanilla Eyewear
       - m_Id: e1ad403535569d94caa9eef6d88a3805
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
           Hats'
@@ -235,6 +245,9 @@ MonoBehaviour:
     - m_Id: 5c183db6469a951409ec4be0dc2cf880
       m_Name: Pack_Shirts_LoadPath
       m_InlineUsage: 0
+    - m_Id: 612011e4f0d72c248ba19926519ced2e
+      m_Name: Pack_Vanilla Eyewear_LoadPath
+      m_InlineUsage: 0
     - m_Id: 654bc31bc64da90439c688e82cafa878
       m_Name: Local.LoadPath
       m_InlineUsage: 0
@@ -261,6 +274,9 @@ MonoBehaviour:
       m_InlineUsage: 0
     - m_Id: df41d08b4b1bed84796d93bd5d4f54e7
       m_Name: Pack_Vanilla Clothing_BuildPath
+      m_InlineUsage: 0
+    - m_Id: e03bb56726ce1864e847bf618456192b
+      m_Name: Pack_Vanilla Eyewear_BuildPath
       m_InlineUsage: 0
     - m_Id: e1ad403535569d94caa9eef6d88a3805
       m_Name: Pack_Vanilla Hats_LoadPath

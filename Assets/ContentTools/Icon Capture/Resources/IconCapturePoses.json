@@ -58,7 +58,64 @@
           "euler": [0.0, -25.604, 0.0]
         }
       ]
+    },
+    {
+      "match": "Human_Body_*",
+      "bones": [
+        {
+          "bone": "mixamorig:LeftShoulder",
+          "euler": [0.00, 0.0, 10.781]
+        },
+        {
+          "bone": "mixamorig:LeftArm",
+          "euler": [0.0, 0.0, 45]
+        },
+        {
+          "bone": "mixamorig:LeftForeArm",
+          "euler": [0.0, 25.604, 0.0]
+        },
+        {
+          "bone": "mixamorig:RightShoulder",
+          "euler": [0.00, 0.0, -10.781]
+        },
+        {
+          "bone": "mixamorig:RightArm",
+          "euler": [0.0, 0.0, -45]
+        },
+        {
+          "bone": "mixamorig:RightForeArm",
+          "euler": [0.0, -25.604, 0.0]
+        }
+      ]
+    },
+    {
+      "match": "Human_Bust_*",
+      "bones": [
+        {
+          "bone": "mixamorig:LeftShoulder",
+          "euler": [0.00, 0.0, 10.781]
+        },
+        {
+          "bone": "mixamorig:LeftArm",
+          "euler": [0.0, 0.0, 45]
+        },
+        {
+          "bone": "mixamorig:LeftForeArm",
+          "euler": [0.0, 25.604, 0.0]
+        },
+        {
+          "bone": "mixamorig:RightShoulder",
+          "euler": [0.00, 0.0, -10.781]
+        },
+        {
+          "bone": "mixamorig:RightArm",
+          "euler": [0.0, 0.0, -45]
+        },
+        {
+          "bone": "mixamorig:RightForeArm",
+          "euler": [0.0, -25.604, 0.0]
+        }
+      ]
     }
-
   ]
 }
