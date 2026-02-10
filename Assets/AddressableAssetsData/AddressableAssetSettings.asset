@@ -184,7 +184,8 @@ MonoBehaviour:
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
           Eyewear'
       - m_Id: 654bc31bc64da90439c688e82cafa878
-        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization'
+        m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Local
+          Custom'
       - m_Id: 785b4b4d33145bb4eabe57ddff50b444
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/MyCoolBarsPack'
       - m_Id: 8291b8e32748dc840a1b3ca052902b92
@@ -201,7 +202,8 @@ MonoBehaviour:
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
           Clothing'
       - m_Id: c3b1357132e9a5346a88cd86b42ef70e
-        m_Value: file:///{Application.streamingAssetsPath}/Addressables/Customization
+        m_Value: file:///{Application.streamingAssetsPath}/Addressables/Customization/Local
+          Custom
       - m_Id: dc051c1cbd1d04241ba6a9265b7ab8b6
         m_Value: '{Application.streamingAssetsPath}/Addressables/Customization/Vanilla
           Socks'
