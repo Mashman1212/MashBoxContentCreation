@@ -180,7 +180,7 @@ namespace ContentTools.Editor
 
             // During build: make BOTH Build & Load non-dynamic and pointing to the same folder
             string buildPathValue = packBuildFolder;            // filesystem path
-            string loadPathValue = "{Application.streamingAssetsPath}/Addressables/Customization/" + sub;
+            string loadPathValue = "{Application.streamingAssetsPath}/Addressables/Customization/Local Custom/" + sub;
 
             // Create pack-scoped profile vars (by NAME) and set values
             string packBuildVarName = EnsureProfileVar(prof, $"Pack_{def.PackName}_BuildPath", buildPathValue);

@@ -215,8 +215,8 @@ namespace ContentTools
                 schema.BuildPath.SetVariableByName(settings, buildVar);
 
                 // Load Path: {Application.streamingAssetsPath}/Addressables/Customization
-                string loadVar = EnsureProfileVar(prof, "Customization_LoadPath",
-                    "{Application.streamingAssetsPath}/Addressables/Customization");
+                
+                string loadVar = EnsureProfileVar(prof, "Customization_LoadPath", "{Application.streamingAssetsPath}/Addressables/Customization/Local Custom");
                 schema.LoadPath.SetVariableByName(settings, loadVar);
 
                 // Common settings (attempt when available; reflection keeps this version-agnostic)
@@ -414,7 +414,7 @@ namespace ContentTools
             schema.BuildPath.SetVariableByName(settings, buildVar);
 
             string loadVar = EnsureProfileVar(prof, "Customization_LoadPath",
-                "{Application.streamingAssetsPath}/Addressables/Customization");
+                "{Application.streamingAssetsPath}/Addressables/Customization/Local Custom");
             schema.LoadPath.SetVariableByName(settings, loadVar);
 
             SetEnumIfExists(schema, "Compression", "LZ4");
